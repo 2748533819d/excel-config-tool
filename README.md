@@ -73,6 +73,33 @@
 
 ### 3. Java 代码使用
 
+**方式一：简洁门面 API（推荐）**
+
+```java
+// 从 Excel 提取数据
+Map<String, Object> data = ExcelConfigHelper.read("template.xlsx")
+    .config("config.json")
+    .extract();
+List<Object> orderNos = (List<Object>) data.get("orderNos");
+
+// 填充数据到 Excel
+Map<String, Object> inputData = Map.of(
+    "orderNos", Arrays.asList("ORD001", "ORD002", "ORD003")
+);
+ExcelConfigHelper.write("template.xlsx")
+    .config("config.json")
+    .data(inputData)
+    .writeTo("output.xlsx");
+
+// 或输出到 OutputStream
+ExcelConfigHelper.write(templateInputStream)
+    .configJson(configJson)
+    .data(inputData)
+    .writeTo(outputStream);
+```
+
+**方式二：Service API**
+
 ```java
 // 创建服务
 ExcelConfigService service = new ExcelConfigService();
