@@ -1,9 +1,0 @@
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/ExcelConfigServiceTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/SmartMergeTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/config/JsonConfigParserTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/export/FillEngineTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/extract/ExtractEngineTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/integration/ColumnIsolationTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/integration/FillAutoExpandTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/integration/RealFileColumnIsolationTest.java
-/Users/huangzhenzhen/code/excel-config-tool/packages/core/src/test/java/com/excelconfig/locator/HeaderLocatorTest.java
