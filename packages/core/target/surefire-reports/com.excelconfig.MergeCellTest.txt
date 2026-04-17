@@ -1,0 +1,34 @@
+-------------------------------------------------------------------------------
+Test set: com.excelconfig.MergeCellTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 1, Errors: 1, Skipped: 0, Time elapsed: 0.032 s <<< FAILURE! -- in com.excelconfig.MergeCellTest
+com.excelconfig.MergeCellTest.testMerge_WithRowSpan -- Time elapsed: 0.006 s <<< ERROR!
+com.excelconfig.export.FillException: 填充失败：填充失败 [groups]: 未找到表头 '分组' (搜索范围：行 1-6)
+	at com.excelconfig.export.FillEngine.fill(FillEngine.java:85)
+	at com.excelconfig.ExcelConfigService.fill(ExcelConfigService.java:62)
+	at com.excelconfig.MergeCellTest.testMerge_WithRowSpan(MergeCellTest.java:152)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: com.excelconfig.export.FillException: 填充失败 [groups]: 未找到表头 '分组' (搜索范围：行 1-6)
+	at com.excelconfig.export.FillEngine.fill(FillEngine.java:116)
+	at com.excelconfig.export.FillEngine.fill(FillEngine.java:76)
+	... 5 more
+Caused by: com.excelconfig.locator.HeaderNotFoundException: 未找到表头 '分组' (搜索范围：行 1-6)
+	at com.excelconfig.locator.HeaderLocator.locate(HeaderLocator.java:59)
+	at com.excelconfig.export.FillEngine.locateHeader(FillEngine.java:128)
+	at com.excelconfig.export.FillEngine.fill(FillEngine.java:95)
+	... 6 more
+
+com.excelconfig.MergeCellTest.testMerge_SingleCell -- Time elapsed: 0.006 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: 起始列应该是 0 ==> expected: <0> but was: <2>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:563)
+	at com.excelconfig.MergeCellTest.testMerge_SingleCell(MergeCellTest.java:60)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+

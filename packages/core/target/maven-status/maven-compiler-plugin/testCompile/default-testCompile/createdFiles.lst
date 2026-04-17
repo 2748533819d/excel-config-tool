@@ -1,0 +1,9 @@
+com/excelconfig/export/FillEngineTest.class
+com/excelconfig/locator/HeaderLocatorTest.class
+com/excelconfig/SmartMergeTest.class
+com/excelconfig/extract/ExtractEngineTest.class
+com/excelconfig/integration/RealFileColumnIsolationTest.class
+com/excelconfig/integration/FillAutoExpandTest.class
+com/excelconfig/integration/ColumnIsolationTest.class
+com/excelconfig/config/JsonConfigParserTest.class
+com/excelconfig/ExcelConfigServiceTest.class
