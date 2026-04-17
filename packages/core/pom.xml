@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.excelconfig</groupId>
         <artifactId>excel-config-tool</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>1.0.0</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,6 +16,39 @@
 
     <name>Excel Config Tool - Core</name>
     <description>核心引擎 - 表头匹配、数据提取、数据填充</description>
+
+    <!-- Maven Central 元数据 -->
+    <url>https://github.com/2748533819d/excel-config-tool</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>2748533819d</id>
+            <name>Developer</name>
+            <email>2748533819@qq.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git://github.com/2748533819d/excel-config-tool.git</connection>
+        <developerConnection>scm:git:ssh://github.com:2748533819d/excel-config-tool.git</developerConnection>
+        <url>https://github.com/2748533819d/excel-config-tool</url>
+    </scm>
+
+    <!-- Maven Central 发布配置 -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
 
     <dependencies>
         <!-- Apache POI -->
