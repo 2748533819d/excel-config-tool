@@ -1,6 +1,6 @@
 # Excel Config Tool - 表头匹配与动态扩展
 
-> **核心原则：配置通过表头匹配定位，数据量由实际数据决定，模板空间不足时自动扩展**
+> **核心原则**：配置通过表头文字匹配定位，数据量由实际数据决定，模板空间不足时自动扩展
 
 ---
 
@@ -26,13 +26,14 @@ Excel 模板：
 {
   "订单号": ["ORD001", "ORD002", ... "ORD020"],  // 20 条！
   "金额": [100, 200, ... 2000],                   // 20 条！
-  "客户": ["张三", "李四", "王五"]                  // 3 条
 }
 
 问题：
 - 模板 A 列只预留到 A8（7 行数据）
 - 实际数据有 20 条
 - 如果直接填充，会覆盖 A10 的"客户"表！
+
+解决方案：自动下移下方内容
 ```
 
 ### 场景 2：表头位置不固定
@@ -56,573 +57,372 @@ Excel 模板 2：
 └─────────────┘
 
 问题：表头位置不固定，不能用固定的 cellRef 配置
+解决：通过表头文字匹配自动定位
 ```
 
 ---
 
-## 二、解决方案：表头匹配 + 动态扩展
+## 二、解决方案
 
-### 方案总览
+### 2.1 表头匹配机制
+
+```java
+// 配置
+{
+  "key": "orderNos",
+  "header": { "match": "订单号" }
+}
+
+// 定位流程
+public class HeaderLocator {
+    
+    public Position locate(Sheet sheet, HeaderConfig config) {
+        // 1. 确定搜索范围
+        int startRow = config.getInRows() != null ? config.getInRows()[0] : 1;
+        int endRow = config.getInRows() != null ? config.getInRows()[1] : sheet.getLastRowNum();
+        
+        // 2. 在范围内搜索
+        for (int rowNum = startRow; rowNum <= endRow; rowNum++) {
+            Row row = sheet.getRow(rowNum);
+            if (row == null) continue;
+            
+            for (Cell cell : row) {
+                String value = getCellValueAsString(cell);
+                if (config.getMatch().equals(value)) {
+                    return new Position(rowNum, cell.getColumnIndex());
+                }
+            }
+        }
+        
+        throw new HeaderNotFoundException("未找到表头：" + config.getMatch());
+    }
+}
+```
+
+### 2.2 动态扩展机制
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    整体流程                                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. 表头匹配                                                    │
-│     配置：{ header: "订单号" }                                   │
-│     行为：扫描第 1 行（或指定行），找到包含"订单号"的单元格            │
-│     结果：定位到 A1                                             │
-│                                                                 │
-│  2. 数据提取/填充                                               │
-│     提取：从表头下方开始，直到遇到边界（空行/下一个表头）         │
-│     填充：从表头下方开始，根据数据量动态扩展                     │
-│                                                                 │
-│  3. 边界处理                                                    │
-│     提取：遇到空行或下一个已知表头时停止                         │
-│     填充：如果下方有其他表，自动下移其他表                       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+填充流程：
+
+1. 定位表头
+   配置：{ header: { match: "订单号" } }
+   结果：定位到 A1
+
+2. 检查下方空间
+   - 从表头下方（A2）开始检查
+   - 查找下一个配置点（如"客户"表头）
+   - 计算可用行数 = 下一个配置点行号 - 表头行号 - 1
+
+3. 计算需要行数
+   需要行数 = 数据数组长度
+
+4. 判断是否需要扩展
+   if (需要行数 > 可用行数) {
+       // 下移下方内容
+       int shiftRows = 需要行数 - 可用行数;
+       sheet.shiftRows(下一个配置点行号，最后一行，shiftRows);
+   }
+
+5. 填充数据
+   从 A2 开始，填充数据
 ```
 
 ---
 
 ## 三、配置语法
 
-### 1. 表头匹配配置
+### 3.1 基础表头匹配
 
-```yaml
-extractions:
-  # 通过表头文字匹配定位
-  - key: "orderNos"
-    header:
-      match: "订单号"           # 精确匹配
-      searchRow: 1             # 在第 1 行搜索（默认）
-      partialMatch: false      # 是否部分匹配（默认 false）
-    mode: DOWN
-    
-  - key: "amounts"
-    header:
-      match: "金额"
-    mode: DOWN
-    
-  - key: "customers"
-    header:
-      match: "客户"
-    mode: DOWN
-```
-
-### 2. 部分匹配
-
-```yaml
-extractions:
-  - key: "orderNos"
-    header:
-      match: "订单"            # 部分匹配
-      partialMatch: true       # 可以匹配"订单号"、"订单编号"等
-```
-
-### 3. 正则匹配
-
-```yaml
-extractions:
-  - key: "orderNos"
-    header:
-      match: "订单.*号"        # 正则表达式
-      regex: true
-```
-
-### 4. 多行搜索
-
-```yaml
-extractions:
-  - key: "orderNos"
-    header:
-      match: "订单号"
-      searchRows:
-        start: 1
-        end: 5                # 在第 1-5 行搜索表头
-```
-
-### 5. 导出配置（同样方式）
-
-```yaml
-exports:
-  - key: "orderNos"
-    header:
-      match: "订单号"
-    mode: FILL_DOWN
-    
-  - key: "customers"
-    header:
-      match: "客户"
-    mode: FILL_DOWN
-```
-
----
-
-## 四、核心机制
-
-### 1. 表头定位器
-
-```java
-public class HeaderLocator {
-    
-    /**
-     * 根据表头文字定位单元格
-     */
-    public Position locate(Sheet sheet, HeaderConfig config) {
-        int startRow = config.getSearchRow() != null ? config.getSearchRow() : 1;
-        int endRow = config.getSearchRows() != null ? config.getSearchRows().getEnd() : startRow;
-        
-        for (int rowNum = startRow; rowNum <= endRow; rowNum++) {
-            Row row = sheet.getRow(rowNum);
-            if (row == null) continue;
-            
-            for (Cell cell : row) {
-                String cellValue = getCellValueAsString(cell);
-                
-                if (matches(cellValue, config)) {
-                    return new Position(rowNum, cell.getColumnIndex());
-                }
-            }
-        }
-        
-        throw new HeaderNotFoundException(
-            String.format("未找到表头 '%s' (搜索范围：行 %d-%d)", 
-                config.getMatch(), startRow, endRow));
+```json
+{
+  "extractions": [
+    {
+      "key": "orderNos",
+      "header": {
+        "match": "订单号"
+      },
+      "mode": "DOWN"
     }
-    
-    private boolean matches(String cellValue, HeaderConfig config) {
-        if (cellValue == null) return false;
-        
-        if (config.isRegex()) {
-            return cellValue.matches(config.getMatch());
-        } else if (config.isPartialMatch()) {
-            return cellValue.contains(config.getMatch());
-        } else {
-            return cellValue.equals(config.getMatch());
-        }
-    }
+  ]
 }
 ```
 
-### 2. 边界检测器（提取）
+### 3.2 指定搜索范围
 
-```java
-public class ExtractBoundaryDetector {
-    
-    /**
-     * 检测提取的结束行
-     */
-    public int detectEndRow(Sheet sheet, Position headerPos, List<Position> knownHeaders) {
-        int column = headerPos.getColumn();
-        int startRow = headerPos.getRow() + 1;  // 从表头下方开始
-        
-        for (int rowNum = startRow; ; rowNum++) {
-            Row row = sheet.getRow(rowNum);
-            
-            // 空行：停止
-            if (row == null || isRowEmpty(row)) {
-                return rowNum - 1;
-            }
-            
-            // 检查是否是已知表头位置
-            if (isKnownHeaderPosition(rowNum, column, knownHeaders)) {
-                return rowNum - 1;  // 在表头之前停止
-            }
-            
-            // 检查是否是新表头（通过样式检测）
-            if (isHeaderRow(row)) {
-                return rowNum - 1;  // 在新表头之前停止
-            }
-        }
+```json
+{
+  "extractions": [
+    {
+      "key": "orderNos",
+      "header": {
+        "match": "订单号",
+        "inRows": [1, 10]
+      },
+      "mode": "DOWN"
     }
-    
-    private boolean isKnownHeaderPosition(int rowNum, int column, List<Position> knownHeaders) {
-        return knownHeaders.stream()
-            .anyMatch(p -> p.getRow() == rowNum && p.getColumn() == column);
-    }
+  ]
 }
 ```
 
-### 3. 动态扩展器（导出）
+说明：`inRows: [1, 10]` 表示在第 1 行到第 10 行之间搜索表头
 
-```java
-public class DynamicExpander {
-    
-    /**
-     * 导出时动态扩展空间
-     */
-    public void expandAndFill(
-        Sheet sheet, 
-        Position headerPos, 
-        List<Object> data,
-        List<Position> knownHeaders) {
-        
-        int column = headerPos.getColumn();
-        int startRow = headerPos.getRow() + 1;
-        
-        // 检查下方是否有其他表
-        Position nextHeader = findNextHeaderBelow(startRow, column, knownHeaders, sheet);
-        
-        if (nextHeader != null) {
-            int availableRows = nextHeader.getRow() - startRow;
-            int requiredRows = data.size();
-            
-            if (requiredRows > availableRows) {
-                // 需要扩展：下移下方的表
-                int rowsToShift = requiredRows - availableRows;
-                shiftBelowRows(sheet, nextHeader.getRow(), rowsToShift);
-            }
-        }
-        
-        // 填充数据
-        for (int i = 0; i < data.size(); i++) {
-            Row row = getOrCreateRow(sheet, startRow + i);
-            Cell cell = getOrCreateCell(row, column);
-            fillCell(cell, data.get(i));
-        }
+### 3.3 多表配置
+
+```json
+{
+  "version": "1.0",
+  "templateName": "多表处理",
+  "extractions": [
+    {
+      "key": "orderTable",
+      "header": {
+        "match": "订单号",
+        "inRows": [1, 10]
+      },
+      "mode": "DOWN"
+    },
+    {
+      "key": "customerTable",
+      "header": {
+        "match": "客户",
+        "inRows": [15, 25]
+      },
+      "mode": "DOWN"
     }
-    
-    /**
-     * 下移指定行及其下方的所有内容
-     */
-    private void shiftBelowRows(Sheet sheet, int fromRow, int rowsToShift) {
-        // 从最后一行开始往上移，避免覆盖
-        for (int rowNum = sheet.getLastRowNum(); rowNum >= fromRow; rowNum--) {
-            Row oldRow = sheet.getRow(rowNum);
-            if (oldRow == null) continue;
-            
-            Row newRow = sheet.getRow(rowNum + rowsToShift);
-            if (newRow == null) {
-                newRow = sheet.createRow(rowNum + rowsToShift);
-            }
-            
-            // 复制整行
-            copyRow(oldRow, newRow);
-            
-            // 清空原行（可选）
-            // clearRow(oldRow);
-        }
-    }
+  ]
 }
 ```
 
 ---
 
-## 五、完整示例
+## 四、自动扩展详解
 
-### 示例 1：提取配置
+### 4.1 单列扩展
 
-```yaml
-version: "1.0"
-templateName: "多表提取"
-
-extractions:
-  # 订单表
-  - key: "orderNos"
-    header:
-      match: "订单号"
-      searchRow: 1
-    mode: DOWN
-    parser:
-      type: string
-      
-  - key: "amounts"
-    header:
-      match: "金额"
-      searchRow: 1
-    mode: DOWN
-    parser:
-      type: number
-      
-  # 客户表（在订单表下方）
-  - key: "customers"
-    header:
-      match: "客户"
-    mode: DOWN
-    parser:
-      type: string
 ```
+原始模板：
+┌─────────────┐
+│ A1: 订单号   │
+│ A2:         │
+│ A3:         │
+│ A4:         │
+├─────────────┤
+│ A5: 合计     │  ← 原有内容
+└─────────────┘
 
-**提取行为**：
-```
-Excel:
-A1: 订单号 | B1: 金额
-A2-A8: 订单数据 (7 条)
-A9: (空)
-A10: 客户
+填充 5 条数据：
+["ORD001", "ORD002", "ORD003", "ORD004", "ORD005"]
 
 结果：
-- orderNos: 提取 A2-A8 (7 条)
-- amounts: 提取 B2-B8 (7 条)
-- customers: 提取 A11 开始（遇到空行停止，则到 sheet 末尾）
+┌─────────────┐
+│ A1: 订单号   │
+│ A2: ORD001  │
+│ A3: ORD002  │
+│ A4: ORD003  │
+│ A5: ORD004  │
+│ A6: ORD005  │
+├─────────────┤
+│ A7: 合计     │  ← 自动下移 2 行
+└─────────────┘
 ```
 
-### 示例 2：导出配置
+### 4.2 多列扩展（列隔离）
 
-```yaml
-version: "1.0"
-
-exports:
-  # 订单表 - 数据量可能超过模板
-  - key: "orderNos"
-    header:
-      match: "订单号"
-    mode: FILL_DOWN
-    # 不指定 maxRows，根据数据量自动扩展
-    
-  - key: "amounts"
-    header:
-      match: "金额"
-    mode: FILL_DOWN
-    
-  # 客户表 - 在订单表下方
-  - key: "customers"
-    header:
-      match: "客户"
-    mode: FILL_DOWN
 ```
+原始模板：
+┌─────────┬─────────┬─────────┐
+│ A1: 订单号│ B1: 金额 │ C1: 日期 │
+│ A2:      │ B2:     │ C2:     │
+│ A3:      │ B3:     │ C3:     │
+├─────────┴─────────┴─────────┤
+│ A4: 合计                     │  ← 原有内容
+└─────────────────────────────┘
 
-**导出行为**：
-```
-模板：
-A1: 订单号 | B1: 金额
-A2-A8: 预留 7 行
-A10: 客户
-
-数据：
+填充数据：
 {
-  "orderNos": [20 条],  // 20 条数据
-  "amounts": [20 条],
-  "customers": [3 条]
+  "订单号": ["ORD001", "ORD002", "ORD003", "ORD004", "ORD005"],  // 5 条
+  "金额": [100, 200, 300],                                       // 3 条
+  "日期": ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"]  // 4 条
 }
 
-行为：
-1. 定位"订单号"表头 → A1
-2. 检查下方：发现 A10 有"客户"表
-3. 计算：需要 20 行，可用 8 行，需要下移 12 行
-4. 下移：将 A10 及下方所有内容下移 12 行 → A10 移到 A22
-5. 填充：A2-A21 填充订单数据
-6. 定位"客户"表头 → 现在在 A22
-7. 填充：A23-A25 填充客户数据
+结果（每列独立扩展）：
+┌─────────┬─────────┬─────────┐
+│ A1: 订单号│ B1: 金额 │ C1: 日期 │
+│ A2: ORD001│ B2: 100 │ C2: 2024-01-01 │
+│ A3: ORD002│ B3: 200 │ C3: 2024-01-02 │
+│ A4: ORD003│ B4: 300 │ C4: 2024-01-03 │
+│ A5: ORD004│ B5:     │ C5: 2024-01-04 │
+│ A6: ORD005│         │     │
+├─────────┴─────────┴─────────┤
+│ A7: 合计                     │  ← 下移到第 7 行（最大偏移）
+└─────────────────────────────┘
+
+规则：
+- A 列填充 5 行 → 偏移 5 行
+- B 列填充 3 行 → 偏移 3 行
+- C 列填充 4 行 → 偏移 4 行
+- 下方内容偏移量 = max(5, 3, 4) = 5 行
 ```
 
 ---
 
-## 六、配置优先级
+## 五、边界检测
 
-### 方式 1：表头匹配（推荐）
+### 5.1 提取边界
 
-```yaml
-# ✅ 推荐：通过表头匹配定位，不依赖固定位置
-extractions:
-  - key: "orderNos"
-    header:
-      match: "订单号"
-    mode: DOWN
+```
+提取时遇到以下情况停止：
+
+1. 达到 maxRows 限制
+   { "range": { "maxRows": 100 } } → 最多提取 100 行
+
+2. 遇到空行（skipEmpty=true）
+   { "range": { "skipEmpty": true } } → 遇到空行停止
+
+3. 遇到下一个配置点
+   如果配置了多个表，遇到下一个表头时停止
+
+4. 到达 Sheet 末尾
+   自然结束
 ```
 
-### 方式 2：固定位置
+### 5.2 填充边界
 
-```yaml
-# 固定位置：适用于格式固定的模板
-extractions:
-  - key: "orderNos"
-    position:
-      cellRef: "A1"
-    mode: DOWN
 ```
+填充时的边界处理：
 
-### 方式 3：混合模式
+1. 有下一个配置点
+   → 检查空间，不足则下移
 
-```yaml
-# 混合：优先表头匹配，找不到时使用备用位置
-extractions:
-  - key: "orderNos"
-    header:
-      match: "订单号"
-    position:
-      cellRef: "A1"   # 备用位置
-    mode: DOWN
+2. 没有下一个配置点
+   → 直接扩展，无限制
+
+3. 达到 maxRows 限制
+   → 截断数据，只填充 maxRows 行
 ```
 
 ---
 
-## 七、Java 实现骨架
+## 六、最佳实践
 
-### 配置类
+### 6.1 推荐配置方式
 
-```java
-@Data
-@Builder
-public class ExtractConfig {
-    // 字段名（映射到 JSON 结果的 key）
-    private String key;
-    
-    // 表头匹配配置（方式 1）
-    private HeaderConfig header;
-    
-    // 固定位置配置（方式 2）
-    private PositionConfig position;
-    
-    // 提取模式
-    private ExtractMode mode;
-    
-    // 范围配置
-    private RangeConfig range;
-    
-    // 解析器配置
-    private ParserConfig parser;
+```json
+// ✅ 推荐：使用表头匹配，不指定固定位置
+{
+  "extractions": [
+    {
+      "key": "orderNos",
+      "header": { "match": "订单号" },
+      "mode": "DOWN",
+      "range": { "skipEmpty": true }
+    }
+  ]
 }
 
-@Data
-@Builder
-public class HeaderConfig {
-    // 匹配的表头文字
-    private String match;
-    
-    // 是否部分匹配
-    private boolean partialMatch;
-    
-    // 是否正则匹配
-    private boolean regex;
-    
-    // 搜索行
-    private Integer searchRow;
-    
-    // 搜索行范围
-    private RowRange searchRows;
+// ❌ 不推荐：硬编码固定位置
+{
+  "extractions": [
+    {
+      "key": "orderNos",
+      "position": { "cellRef": "A2" },
+      "mode": "DOWN",
+      "range": { "rows": 100 }
+    }
+  ]
 }
 ```
 
-### 提取引擎
+### 6.2 多表配置技巧
 
-```java
-public class ExtractEngine {
-    
-    private final HeaderLocator headerLocator;
-    private final ExtractBoundaryDetector boundaryDetector;
-    
-    public Map<String, Object> extract(InputStream input, ExcelConfig config) {
-        Workbook workbook = WorkbookFactory.create(input);
-        Sheet sheet = workbook.getSheetAt(0);
-        
-        // 收集所有已知表头位置
-        List<Position> knownHeaders = locateAllHeaders(sheet, config);
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        for (ExtractConfig extract : config.getExtractions()) {
-            // 1. 定位表头
-            Position headerPos;
-            if (extract.getHeader() != null) {
-                headerPos = headerLocator.locate(sheet, extract.getHeader());
-            } else {
-                headerPos = extract.getPosition().toPosition();
-            }
-            
-            // 2. 检测边界
-            int endRow = boundaryDetector.detectEndRow(
-                sheet, headerPos, knownHeaders);
-            
-            // 3. 执行提取
-            List<Object> data = extractRange(
-                sheet, headerPos, endRow, extract.getParser());
-            
-            result.put(extract.getKey(), data);
-        }
-        
-        return result;
+```json
+{
+  "version": "1.0",
+  "extractions": [
+    {
+      "key": "orders",
+      "header": { 
+        "match": "订单号",
+        "inRows": [1, 50]  // 限制搜索范围，避免匹配到下面的表
+      },
+      "mode": "DOWN"
+    },
+    {
+      "key": "customers",
+      "header": { 
+        "match": "客户",
+        "inRows": [55, 100]  // 在下方区域搜索
+      },
+      "mode": "DOWN"
     }
-    
-    private List<Position> locateAllHeaders(Sheet sheet, ExcelConfig config) {
-        List<Position> positions = new ArrayList<>();
-        
-        for (ExtractConfig extract : config.getExtractions()) {
-            if (extract.getHeader() != null) {
-                try {
-                    Position pos = headerLocator.locate(sheet, extract.getHeader());
-                    positions.add(pos);
-                } catch (HeaderNotFoundException e) {
-                    // 忽略，使用备用位置
-                }
-            }
-        }
-        
-        return positions;
-    }
+  ]
 }
 ```
 
-### 导出引擎
+### 6.3 避免覆盖
 
+```
+如果模板中有多个表：
+
+1. 为每个表配置 inRows 范围
+2. 确保表之间有足够的间隔
+3. 填充时会自动检测并下移
+
+配置示例：
+┌──────────────────────────────┐
+│ 订单表 (inRows: 1-50)         │
+│ ...                          │
+├──────────────────────────────┤
+│ 间隔行（作为缓冲区）          │
+├──────────────────────────────┤
+│ 客户表 (inRows: 55-100)       │
+└──────────────────────────────┘
+```
+
+---
+
+## 七、常见问题
+
+### Q: 表头文字包含空格怎么办？
+
+**A:** 配置中的 match 值需要精确匹配：
+```json
+{
+  "header": { "match": "订单号 " }  // 注意空格
+}
+```
+
+或者在代码中预处理表头：
 ```java
-public class ExportEngine {
-    
-    private final HeaderLocator headerLocator;
-    private final DynamicExpander expander;
-    
-    public byte[] export(InputStream template, Map<String, Object> data, ExcelConfig config) {
-        Workbook workbook = WorkbookFactory.create(template);
-        Sheet sheet = workbook.getSheetAt(0);
-        
-        // 收集所有已知表头位置
-        List<Position> knownHeaders = locateAllHeaders(sheet, config);
-        
-        // 按行号排序（从下往上处理，避免覆盖）
-        knownHeaders.sort(Comparator.comparingInt(Position::getRow).reversed());
-        
-        for (ExportConfig export : config.getExports()) {
-            // 1. 定位表头
-            Position headerPos = headerLocator.locate(sheet, export.getHeader());
-            
-            // 2. 获取数据
-            List<Object> columnData = getColumnData(data, export.getKey());
-            
-            // 3. 动态扩展并填充
-            expander.expandAndFill(sheet, headerPos, columnData, knownHeaders);
-        }
-        
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        workbook.write(output);
-        return output.toByteArray();
-    }
+// 未来支持模糊匹配/正则匹配
+{
+  "header": { 
+    "match": "订单号",
+    "matchMode": "CONTAINS"  // TODO: 未来支持
+  }
+}
+```
+
+### Q: 如何处理合并的表头单元格？
+
+**A:** 当前实现支持合并单元格，会读取合并区域的左上角值。
+
+### Q: 表头在最后一行怎么办？
+
+**A:** 需要指定 inRows 范围：
+```json
+{
+  "header": { 
+    "match": "合计",
+    "inRows": [50, 100]  // 在 50-100 行搜索
+  }
 }
 ```
 
 ---
 
-## 八、总结
+## 八、参考资料
 
-### 核心原则
-
-| 原则 | 说明 |
-|------|------|
-| 表头匹配定位 | 配置通过表头文字匹配，不依赖固定位置 |
-| 数据量驱动 | 提取/填充的行数由实际数据决定 |
-| 自动扩展 | 导出时如果空间不足，自动下移下方内容 |
-| 边界保护 | 提取时遇到已知表头位置或空行停止 |
-
-### 配置对比
-
-```yaml
-# ❌ 旧方式：固定位置，不灵活
-extractions:
-  - key: "orderNos"
-    position: { cellRef: "A1" }
-    mode: DOWN
-
-# ✅ 新方式：表头匹配，灵活
-extractions:
-  - key: "orderNos"
-    header: { match: "订单号" }
-    mode: DOWN
-```
-
-### 解决的问题
-
-1. ✅ **表头位置不固定** → 通过表头文字匹配定位
-2. ✅ **数据量超过模板** → 自动下移下方内容，动态扩展
-3. ✅ **多表共存** → 已知表头位置作为边界参考，自动协调
+- [HeaderLocator 实现](../packages/core/src/main/java/com/excelconfig/locator/HeaderLocator.java)
+- [FillEngine 实现](../packages/core/src/main/java/com/excelconfig/export/FillEngine.java)
+- [列隔离机制](./COLUMN_ISOLATION.md)
