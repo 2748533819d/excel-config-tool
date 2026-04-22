@@ -119,6 +119,8 @@
     </dependencies>
 
     <build>
+        <sourceDirectory>packages/core/src/main/java</sourceDirectory>
+        <testSourceDirectory>packages/core/src/test/java</testSourceDirectory>
         <plugins>
             <!-- 编译插件 -->
             <plugin>
