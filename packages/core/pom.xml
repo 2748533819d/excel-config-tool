@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.excelconfig</groupId>
+        <groupId>io.github.cynosure-tech</groupId>
         <artifactId>excel-config-tool</artifactId>
         <version>1.0.0</version>
         <relativePath>../../pom.xml</relativePath>
@@ -17,7 +17,7 @@
     <name>Excel Config Tool - Core</name>
     <description>核心引擎 - 表头匹配、数据提取、数据填充</description>
 
-    <!-- Maven Central 元数据 -->
+    <!-- Maven Central 元数据（继承父 POM） -->
     <url>https://github.com/2748533819d/excel-config-tool</url>
     <licenses>
         <license>
@@ -38,17 +38,7 @@
         <url>https://github.com/2748533819d/excel-config-tool</url>
     </scm>
 
-    <!-- Maven Central 发布配置 -->
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
+    <!-- Maven Central 发布配置（继承父 POM） -->
 
     <dependencies>
         <!-- Apache POI -->
@@ -105,6 +95,14 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <!-- 覆盖父 POM 的 deploy skip 配置 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                </configuration>
             </plugin>
         </plugins>
     </build>
