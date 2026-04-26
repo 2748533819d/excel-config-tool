@@ -27,9 +27,9 @@
 
 ```xml
 <dependency>
-    <groupId>com.excelconfig</groupId>
+    <groupId>io.github.cynosure-tech</groupId>
     <artifactId>excel-config-core</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -272,31 +272,30 @@ response.getOutputStream().write(excelBytes);
 
 ```
 excel-config-tool/
-├── packages/
-│   └── core/                        # 核心引擎
-│       ├── src/main/java/
-│       │   └── com/excelconfig/
-│       │       ├── ExcelConfigService.java    # Service API
-│       │       ├── ExcelConfigHelper.java     # 简洁门面 API
-│       │       ├── ExcelConfigException.java  # 异常类
-│       │       ├── model/                     # 配置模型
-│       │       │   ├── ExcelConfig.java
-│       │       │   ├── ExtractConfig.java
-│       │       │   ├── ExportConfig.java
-│       │       │   └── ...
-│       │       ├── spi/                       # SPI 接口
-│       │       │   ├── ExtractMode.java
-│       │       │   ├── FillMode.java
-│       │       │   └── ...
-│       │       ├── extract/                   # 提取引擎
-│       │       ├── export/                    # 填充引擎
-│       │       ├── locator/                   # 表头定位
-│       │       ├── config/                    # JSON 配置解析
-│       │       └── sax/                       # SAX 流式读取
-│       └── src/test/java/                     # 单元测试
-├── docs/                                      # 设计文档
-├── examples/                                  # 使用示例
-└── pom.xml                                    # 父 POM
+├── src/
+│   ├── main/java/
+│   │   └── com/excelconfig/
+│   │       ├── ExcelConfigService.java    # Service API
+│   │       ├── ExcelConfigHelper.java     # 简洁门面 API
+│   │       ├── ExcelConfigException.java  # 异常类
+│   │       ├── model/                     # 配置模型
+│   │       │   ├── ExcelConfig.java
+│   │       │   ├── ExtractConfig.java
+│   │       │   ├── ExportConfig.java
+│   │       │   └── ...
+│   │       ├── spi/                       # SPI 接口
+│   │       │   ├── ExtractMode.java
+│   │       │   ├── FillMode.java
+│   │       │   └── ...
+│   │       ├── extract/                   # 提取引擎
+│   │       ├── export/                    # 填充引擎
+│   │       ├── locator/                   # 表头定位
+│   │       ├── config/                    # JSON 配置解析
+│   │       └── sax/                       # SAX 流式读取
+│   └── test/java/                         # 单元测试
+├── docs/                                  # 设计文档
+├── examples/                              # 使用示例
+└── pom.xml                                # Maven 配置
 ```
 
 ---
@@ -324,9 +323,6 @@ mvn clean install
 
 # 运行所有测试
 mvn test
-
-# 只运行 core 模块测试
-cd packages/core && mvn test
 ```
 
 ### 测试结果
