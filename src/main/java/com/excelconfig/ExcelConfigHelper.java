@@ -4,6 +4,7 @@ import com.excelconfig.config.JsonConfigParser;
 import com.excelconfig.export.FillEngine;
 import com.excelconfig.extract.ExtractEngine;
 import com.excelconfig.model.ExcelConfig;
+import com.excelconfig.util.JsonUtil;
 
 import java.io.File;
 import java.io.InputStream;
@@ -308,56 +309,7 @@ public class ExcelConfigHelper {
     }
 
     private <T> T convertMapToObject(Map<String, Object> map, Class<T> clazz) {
-        try {
-            T instance = clazz.getDeclaredConstructor().newInstance();
-            for (Map.Entry<String, Object> entry : map.entrySet()) {
-                String key = entry.getKey();
-                Object value = entry.getValue();
-                try {
-                    java.lang.reflect.Field field = clazz.getDeclaredField(key);
-                    field.setAccessible(true);
-                    if (value instanceof java.util.List && field.getType().isArray()) {
-                        java.util.List<?> list = (java.util.List<?>) value;
-                        Object array = java.lang.reflect.Array.newInstance(
-                            list.isEmpty() ? Object.class : list.get(0).getClass(), list.size());
-                        for (int i = 0; i < list.size(); i++) {
-                            java.lang.reflect.Array.set(array, i, list.get(i));
-                        }
-                        field.set(instance, array);
-                    } else if (value instanceof java.util.List) {
-                        field.set(instance, value);
-                    } else if (value instanceof Number) {
-                        field.set(instance, convertNumber((Number) value, field.getType()));
-                    } else {
-                        field.set(instance, value);
-                    }
-                } catch (NoSuchFieldException e) {
-                    // 忽略不存在的字段
-                }
-            }
-            return instance;
-        } catch (Exception e) {
-            throw new ExcelConfigException("转换对象失败：" + e.getMessage(), e);
-        }
-    }
-
-    private Object convertNumber(Number number, Class<?> targetType) {
-        if (targetType == Integer.class || targetType == int.class) {
-            return number.intValue();
-        } else if (targetType == Long.class || targetType == long.class) {
-            return number.longValue();
-        } else if (targetType == Double.class || targetType == double.class) {
-            return number.doubleValue();
-        } else if (targetType == Float.class || targetType == float.class) {
-            return number.floatValue();
-        } else if (targetType == Short.class || targetType == short.class) {
-            return number.shortValue();
-        } else if (targetType == Byte.class || targetType == byte.class) {
-            return number.byteValue();
-        } else if (targetType == String.class) {
-            return number.toString();
-        }
-        return number;
+        return JsonUtil.convertToObject(map, clazz);
     }
 
     // ========== Setter 方法 ==========
