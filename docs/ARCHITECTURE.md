@@ -16,7 +16,7 @@
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   ┌─────────────────────────────────────────────────────────────────────────┐   │
-│   │                    @excel-config/core v1.0.0                            │   │
+│   │                    @excel-config/core v1.0.1                            │   │
 │   │                    核心引擎库 (Maven Central)                           │   │
 │   │                                                                         │   │
 │   │   核心组件：                                                             │   │
@@ -44,77 +44,73 @@
 ```
 excel-config-tool/
 │
-├── packages/
+├── src/
+│   ├── main/java/
+│   │   └── com/excelconfig/
+│   │       ├── ExcelConfigHelper.java       # 门面 API（推荐）
+│   │       ├── ExcelConfigService.java      # Service API
+│   │       ├── ExcelConfigException.java    # 统一异常类
+│   │       │
+│   │       ├── model/                       # 配置模型
+│   │       │   ├── ExcelConfig.java         # 根配置
+│   │       │   ├── ExtractConfig.java       # 提取配置
+│   │       │   ├── ExportConfig.java        # 导出配置
+│   │       │   ├── HeaderConfig.java        # 表头配置
+│   │       │   ├── RangeConfig.java         # 范围配置
+│   │       │   ├── ParserConfig.java        # 解析器配置
+│   │       │   ├── StyleConfig.java         # 样式配置
+│   │       │   └── ColumnConfig.java        # 列配置
+│   │       │
+│   │       ├── spi/                         # SPI 接口
+│   │       │   ├── ExtractMode.java         # 提取模式枚举
+│   │       │   ├── FillMode.java            # 填充模式枚举
+│   │       │   ├── ExtractStrategy.java     # 提取策略接口
+│   │       │   ├── FillStrategy.java        # 填充策略接口
+│   │       │   └── CellParser.java          # 单元格解析器接口
+│   │       │
+│   │       ├── extract/                     # 提取引擎
+│   │       │   ├── ExtractEngine.java       # 提取引擎主类
+│   │       │   ├── ExtractContext.java      # 提取上下文
+│   │       │   └── strategy/                # 内置提取策略
+│   │       │       ├── SingleStrategy.java
+│   │       │       ├── DownStrategy.java
+│   │       │       ├── RightStrategy.java
+│   │       │       ├── BlockStrategy.java
+│   │       │       └── UntilEmptyStrategy.java
+│   │       │
+│   │       ├── export/                      # 填充引擎
+│   │       │   ├── FillEngine.java          # 填充引擎主类
+│   │       │   ├── FillContext.java         # 填充上下文
+│   │       │   └── strategy/                # 内置填充策略
+│   │       │       ├── FillCellStrategy.java
+│   │       │       ├── FillDownStrategy.java
+│   │       │       ├── FillTableStrategy.java
+│   │       │       └── ...
+│   │       │
+│   │       ├── locator/                     # 表头定位
+│   │       │   ├── HeaderLocator.java       # 定位器主类
+│   │       │   ├── Position.java            # 位置对象
+│   │       │   └── HeaderNotFoundException.java
+│   │       │
+│   │       ├── config/                      # JSON 配置解析
+│   │       │   └── JsonConfigParser.java    # JSON 解析器
+│   │       │
+│   │       ├── sax/                         # SAX 流式读取
+│   │       │   ├── SaxReadHandler.java      # SAX 处理器
+│   │       │   └── ...
+│   │       │
+│   │       └── util/                        # 工具类
+│   │           ├── CellRefUtils.java        # 单元格引用工具
+│   │           └── StyleUtils.java          # 样式工具
 │   │
-│   └── core/                        # 核心引擎包（已实现）
-│       ├── pom.xml                  # artifactId: excel-config-core
-│       └── src/
-│           ├── main/java/
-│           │   └── com/excelconfig/
-│           │       ├── ExcelConfigHelper.java       # 门面 API（推荐）
-│           │       ├── ExcelConfigService.java      # Service API
-│           │       ├── ExcelConfigException.java    # 统一异常类
-│           │       │
-│           │       ├── model/                       # 配置模型
-│           │       │   ├── ExcelConfig.java         # 根配置
-│           │       │   ├── ExtractConfig.java       # 提取配置
-│           │       │   ├── ExportConfig.java        # 导出配置
-│           │       │   ├── HeaderConfig.java        # 表头配置
-│           │       │   ├── RangeConfig.java         # 范围配置
-│           │       │   ├── ParserConfig.java        # 解析器配置
-│           │       │   ├── StyleConfig.java         # 样式配置
-│           │       │   └── ColumnConfig.java        # 列配置
-│           │       │
-│           │       ├── spi/                         # SPI 接口
-│           │       │   ├── ExtractMode.java         # 提取模式枚举
-│           │       │   ├── FillMode.java            # 填充模式枚举
-│           │       │   ├── ExtractStrategy.java     # 提取策略接口
-│           │       │   ├── FillStrategy.java        # 填充策略接口
-│           │       │   └── CellParser.java          # 单元格解析器接口
-│           │       │
-│           │       ├── extract/                     # 提取引擎
-│           │       │   ├── ExtractEngine.java       # 提取引擎主类
-│           │       │   ├── ExtractContext.java      # 提取上下文
-│           │       │   └── strategy/                # 内置提取策略
-│           │       │       ├── SingleStrategy.java
-│           │       │       ├── DownStrategy.java
-│           │       │       ├── RightStrategy.java
-│           │       │       ├── BlockStrategy.java
-│           │       │       └── UntilEmptyStrategy.java
-│           │       │
-│           │       ├── export/                      # 填充引擎
-│           │       │   ├── FillEngine.java          # 填充引擎主类
-│           │       │   ├── FillContext.java         # 填充上下文
-│           │       │   └── strategy/                # 内置填充策略
-│           │       │       ├── FillCellStrategy.java
-│           │       │       ├── FillDownStrategy.java
-│           │       │       ├── FillTableStrategy.java
-│           │       │       └── ...
-│           │       │
-│           │       ├── locator/                     # 表头定位
-│           │       │   ├── HeaderLocator.java       # 定位器主类
-│           │       │   ├── Position.java            # 位置对象
-│           │       │   └── HeaderNotFoundException.java
-│           │       │
-│           │       ├── config/                      # JSON 配置解析
-│           │       │   └── JsonConfigParser.java    # JSON 解析器
-│           │       │
-│           │       ├── sax/                         # SAX 流式读取
-│           │       │   ├── SaxReadHandler.java      # SAX 处理器
-│           │       │   └── ...
-│           │       │
-│           │       └── util/                        # 工具类
-│           │           ├── CellRefUtils.java        # 单元格引用工具
-│           │           └── StyleUtils.java          # 样式工具
-│           │
-│           └── test/java/                           # 单元测试
-│               └── com/excelconfig/
-│                   ├── ExcelConfigHelperTest.java
-│                   ├── ExcelConfigServiceTest.java
-│                   ├── extract/
-│                   ├── export/
-│                   ├── locator/
-│                   └── config/
+│   └── test/java/                           # 单元测试
+│       └── com/excelconfig/
+│           ├── ExcelConfigHelperTest.java
+│           ├── ExcelConfigServiceTest.java
+│           ├── extract/
+│           ├── export/
+│           ├── locator/
+│           └── config/
 │
 ├── docs/                                            # 文档
 │   ├── FINAL_DESIGN.md                              # 最终设计方案
@@ -129,7 +125,7 @@ excel-config-tool/
 ├── examples/                                        # 使用示例
 │   └── USAGE_EXAMPLES.md                            # 使用示例文档
 │
-└── pom.xml                                          # 父 POM
+└── pom.xml                                          # Maven 配置
 ```
 
 ---

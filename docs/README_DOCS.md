@@ -163,7 +163,7 @@ excel-config-tool/docs/
 
 ## 🔗 相关链接
 
-- [GitHub 仓库](https://github.com/xxx/excel-config-tool)（待创建）
+- [GitHub 仓库](https://github.com/2748533819d/excel-config-tool)
 - [Apache POI 官方文档](https://poi.apache.org/)
 - [Univer 官方文档](https://univer.ai/)
 - [Vue 3 官方文档](https://vuejs.org/)
