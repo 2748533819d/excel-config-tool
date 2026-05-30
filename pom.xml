@@ -53,12 +53,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- 依赖版本 -->
-        <apache.poi.version>5.2.5</apache.poi.version>
-        <jackson.version>2.16.1</jackson.version>
-        <slf4j.version>2.0.11</slf4j.version>
-        <logback.version>1.4.14</logback.version>
-        <junit.version>5.10.1</junit.version>
-        <mockito.version>5.8.0</mockito.version>
+        <apache.poi.version>5.4.0</apache.poi.version>
+        <jackson.version>2.18.3</jackson.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <logback.version>1.5.18</logback.version>
+        <junit.version>5.12.2</junit.version>
+        <mockito.version>5.17.0</mockito.version>
+        <jacoco.version>0.8.13</jacoco.version>
+        <checkstyle.version>10.23.0</checkstyle.version>
 
         <!-- GPG 签名默认跳过（SNAPSHOT 版本不需要） -->
         <gpg.skip>true</gpg.skip>
@@ -199,6 +201,50 @@
                             </gpgArguments>
                             <skip>${gpg.skip}</skip>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JaCoCo 覆盖率 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Checkstyle 代码风格（报告但不阻塞构建） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <configLocation>checkstyle/checkstyle.xml</configLocation>
+                    <failOnViolation>false</failOnViolation>
+                    <violationSeverity>warning</violationSeverity>
+                    <logViolationsToConsole>true</logViolationsToConsole>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
