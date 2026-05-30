@@ -5,7 +5,9 @@ import com.excelconfig.model.ExportConfig;
 import com.excelconfig.spi.FillContext;
 import com.excelconfig.spi.FillStrategy;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.DefaultIndexedColorMap;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +20,7 @@ import java.util.Map;
  * 2. 数据行填充
  * 3. 样式应用（隔行换色、条件格式等）
  */
-public class FillTableStrategy implements FillStrategy {
+class FillTableStrategy implements FillStrategy {
 
     @Override
     public void fill(Workbook workbook, ExportConfig config, FillContext context) {
@@ -133,13 +135,11 @@ public class FillTableStrategy implements FillStrategy {
             applyStyle(cell, column.getStyle());
         }
 
-        // 应用数字格式
+        // 应用数字格式（使用新创建的 CellStyle 避免修改共享样式）
         if (column.getFormat() != null && value instanceof Number) {
-            DataFormat format = cell.getSheet().getWorkbook().createDataFormat();
-            CellStyle style = cell.getCellStyle();
-            if (style == null) {
-                style = cell.getSheet().getWorkbook().createCellStyle();
-            }
+            Workbook wb = cell.getSheet().getWorkbook();
+            DataFormat format = wb.createDataFormat();
+            CellStyle style = wb.createCellStyle();
             style.setDataFormat(format.getFormat(column.getFormat()));
             cell.setCellStyle(style);
         }
@@ -160,17 +160,12 @@ public class FillTableStrategy implements FillStrategy {
                     Cell cell = row.getCell(startCol + j);
                     if (cell == null) continue;
 
-                    CellStyle style = cell.getCellStyle();
-                    if (style == null) {
-                        style = sheet.getWorkbook().createCellStyle();
-                    }
-
-                    // 偶数行浅色背景
                     if (i % 2 == 0) {
+                        CellStyle style = sheet.getWorkbook().createCellStyle();
                         style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
                         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                        cell.setCellStyle(style);
                     }
-                    cell.setCellStyle(style);
                 }
             }
         }
@@ -187,12 +182,9 @@ public class FillTableStrategy implements FillStrategy {
     }
 
     private void applyStyle(Cell cell, com.excelconfig.model.StyleConfig style) {
-        CellStyle cellStyle = cell.getCellStyle();
-        if (cellStyle == null) {
-            cellStyle = cell.getSheet().getWorkbook().createCellStyle();
-        }
-
         Workbook wb = cell.getSheet().getWorkbook();
+        // POI 的 CellStyle 在 Workbook 级别共享，必须创建新实例而非修改 getCellStyle()
+        CellStyle cellStyle = wb.createCellStyle();
 
         // 加粗
         if (style.getBold() != null && style.getBold()) {
@@ -201,11 +193,8 @@ public class FillTableStrategy implements FillStrategy {
             cellStyle.setFont(font);
         }
 
-        // 背景色
         if (style.getBackground() != null) {
-            short colorIndex = parseColorToIndex(style.getBackground());
-            cellStyle.setFillForegroundColor(colorIndex);
-            cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            applyBackgroundColor(cell, cellStyle, style.getBackground());
         }
 
         // 水平对齐
@@ -226,10 +215,25 @@ public class FillTableStrategy implements FillStrategy {
         cell.setCellStyle(cellStyle);
     }
 
-    private short parseColorToIndex(String colorHex) {
-        // 简单实现，返回默认颜色
-        // 完整实现需要解析十六进制颜色并转换为 POI 索引
-        return IndexedColors.GREY_25_PERCENT.getIndex();
+    private void applyBackgroundColor(Cell cell, CellStyle cellStyle, String colorHex) {
+        Workbook wb = cell.getSheet().getWorkbook();
+        if (wb instanceof XSSFWorkbook) {
+            try {
+                String hex = colorHex.startsWith("#") ? colorHex.substring(1) : colorHex;
+                if (hex.length() == 6) {
+                    int r = Integer.parseInt(hex.substring(0, 2), 16);
+                    int g = Integer.parseInt(hex.substring(2, 4), 16);
+                    int b = Integer.parseInt(hex.substring(4, 6), 16);
+                    XSSFColor xssfColor = new XSSFColor(new java.awt.Color(r, g, b), new DefaultIndexedColorMap());
+                    cellStyle.setFillForegroundColor(xssfColor);
+                    cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        cellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
     }
 
     private Row getOrCreateRow(Sheet sheet, int rowNum) {

@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 填充单个单元格策略（FILL_CELL 模式）
  */
-public class FillCellStrategy implements FillStrategy {
+class FillCellStrategy implements FillStrategy {
 
     @Override
     public void fill(Workbook workbook, ExportConfig config, FillContext context) {
@@ -58,10 +58,8 @@ public class FillCellStrategy implements FillStrategy {
      * 应用样式
      */
     protected void applyStyle(Cell cell, com.excelconfig.model.StyleConfig style) {
-        CellStyle cellStyle = cell.getCellStyle();
-        if (cellStyle == null) {
-            cellStyle = cell.getSheet().getWorkbook().createCellStyle();
-        }
+        // POI 的 CellStyle 在 Workbook 级别共享，必须创建新实例而非修改 getCellStyle() 返回的样式
+        CellStyle cellStyle = cell.getSheet().getWorkbook().createCellStyle();
 
         // 水平对齐
         if (style.getHorizontalAlign() != null) {

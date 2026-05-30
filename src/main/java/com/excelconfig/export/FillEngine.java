@@ -16,6 +16,8 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 导出/填充引擎
@@ -26,6 +28,8 @@ import java.util.*;
  * 3. 动态扩展（空间不足时自动下移下方内容）
  */
 public class FillEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(FillEngine.class);
 
     private final HeaderLocator headerLocator;
     private final Map<com.excelconfig.spi.FillMode, FillStrategy> strategies;
@@ -89,7 +93,7 @@ public class FillEngine {
     /**
      * 填充单个配置
      */
-    public void fill(Workbook workbook, Map<String, Object> data, ExportConfig config) {
+    void fill(Workbook workbook, Map<String, Object> data, ExportConfig config) {
         try {
             // 1. 定位表头
             HeaderPosition headerPos = locateHeader(workbook, config);
@@ -146,6 +150,7 @@ public class FillEngine {
             HeaderPosition pos = locateHeader(workbook, config);
             return pos.getRow();
         } catch (Exception e) {
+            log.warn("定位导出配置 [{}] 的表头失败，使用默认行号 0: {}", config.getKey(), e.getMessage());
             return 0;
         }
     }

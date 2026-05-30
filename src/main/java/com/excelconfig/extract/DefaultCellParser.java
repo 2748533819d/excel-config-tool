@@ -6,13 +6,14 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
 
-import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * 默认单元格解析器
  */
-public class DefaultCellParser implements CellParser {
+class DefaultCellParser implements CellParser {
 
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_NUMBER_FORMAT = "#,##0.##";
@@ -103,9 +104,10 @@ public class DefaultCellParser implements CellParser {
                     ? config.getFormat()
                     : DEFAULT_DATE_FORMAT;
                 try {
-                    SimpleDateFormat sdf = new SimpleDateFormat(pattern);
-                    return sdf.parse(dateStr);
-                } catch (Exception e) {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+                    LocalDate localDate = LocalDate.parse(dateStr, formatter);
+                    return java.util.Date.from(localDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+                } catch (DateTimeParseException e) {
                     return null;
                 }
             default:
