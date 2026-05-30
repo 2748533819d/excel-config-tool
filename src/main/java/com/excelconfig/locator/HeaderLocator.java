@@ -2,6 +2,8 @@ package com.excelconfig.locator;
 
 import com.excelconfig.model.HeaderConfig;
 import org.apache.poi.ss.usermodel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 表头定位器
@@ -13,12 +15,15 @@ import org.apache.poi.ss.usermodel.*;
  */
 public class HeaderLocator {
 
+    private static final Logger log = LoggerFactory.getLogger(HeaderLocator.class);
+
     /**
      * 定位表头
      *
      * @param sheet Excel Sheet
      * @param config 表头配置
      * @return 表头位置
+     * @throws IllegalArgumentException 当匹配文本为空时
      * @throws HeaderNotFoundException 当未找到匹配的表头时
      */
     public HeaderPosition locate(Sheet sheet, HeaderConfig config) {
@@ -36,6 +41,8 @@ public class HeaderLocator {
             endRow = config.getInRows()[1] - 1;
         }
 
+        log.debug("定位表头 '{}' 搜索范围：行 {}-{}", config.getMatch(), startRow + 1, endRow + 1);
+
         // 在范围内搜索
         for (int rowNum = startRow; rowNum <= endRow && rowNum <= sheet.getLastRowNum(); rowNum++) {
             Row row = sheet.getRow(rowNum);
@@ -50,11 +57,15 @@ public class HeaderLocator {
 
                 String cellValue = getCellValueAsString(cell);
                 if (cellValue != null && cellValue.equals(config.getMatch())) {
+                    log.debug("找到表头 '{}' 在 {} (行 {}, 列 {})", 
+                        config.getMatch(), new HeaderPosition(rowNum, cell.getColumnIndex()), 
+                        rowNum + 1, cell.getColumnIndex() + 1);
                     return new HeaderPosition(rowNum, cell.getColumnIndex());
                 }
             }
         }
 
+        log.warn("未找到表头 '{}' (搜索范围：行 {}-{})", config.getMatch(), startRow + 1, endRow + 1);
         throw new HeaderNotFoundException(
             String.format("未找到表头 '%s' (搜索范围：行 %d-%d)",
                 config.getMatch(), startRow + 1, endRow + 1));

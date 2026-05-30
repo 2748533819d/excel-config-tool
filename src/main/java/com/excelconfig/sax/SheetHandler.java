@@ -2,7 +2,6 @@ package com.excelconfig.sax;
 
 import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
-import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -26,7 +25,7 @@ class SimpleSheetHandler extends DefaultHandler {
     private int currentColumn = -1;
     private String cellType = null;
 
-    public SimpleSheetHandler(ReadOnlySharedStringsTable sharedStrings, StylesTable styles, RowHandler rowHandler) {
+    SimpleSheetHandler(ReadOnlySharedStringsTable sharedStrings, StylesTable styles, RowHandler rowHandler) {
         this.sharedStrings = sharedStrings;
         this.styles = styles;
         this.rowHandler = rowHandler;

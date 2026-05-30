@@ -3,9 +3,7 @@ package com.excelconfig.sax;
 import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.StylesTable;
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
+
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -21,6 +19,12 @@ public class SaxReader {
 
     /**
      * 从 Excel 文件中流式读取指定 Sheet 的数据
+     *
+     * @param inputStream Excel 文件输入流
+     * @param sheetIndex Sheet 索引（从 0 开始）
+     * @param rowHandler 行数据回调处理器
+     * @throws IllegalArgumentException 指定的 sheetIndex 不存在时抛出
+     * @throws Exception XML 解析或流式读取失败时抛出
      */
     public void read(InputStream inputStream, int sheetIndex, RowHandler rowHandler) throws Exception {
         // 打开 OPC 包
@@ -73,6 +77,11 @@ public class SaxReader {
 
     /**
      * 流式读取所有数据到内存
+     *
+     * @param inputStream Excel 文件输入流
+     * @param sheetIndex Sheet 索引（从 0 开始）
+     * @return 二维 List，每行为一个 List&lt;String&gt;，包含该行所有单元格的字符串值
+     * @throws Exception XML 解析或流式读取失败时抛出
      */
     public List<List<String>> readAll(InputStream inputStream, int sheetIndex) throws Exception {
         List<List<String>> result = new ArrayList<>();

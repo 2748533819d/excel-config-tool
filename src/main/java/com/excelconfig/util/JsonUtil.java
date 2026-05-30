@@ -43,6 +43,7 @@ public class JsonUtil {
      *
      * @param obj 要转换的对象
      * @return JSON 字符串
+     * @throws RuntimeException 转换失败时抛出
      */
     public static String toJson(Object obj) {
         try {
@@ -59,6 +60,7 @@ public class JsonUtil {
      * @param clazz 目标类型
      * @param <T> 类型参数
      * @return 转换后的对象
+     * @throws RuntimeException 解析失败时抛出
      */
     public static <T> T fromJson(String json, Class<T> clazz) {
         try {
