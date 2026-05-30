@@ -33,6 +33,11 @@ public class ColumnConfig {
      */
     private StyleConfig style;
 
+    /**
+     * 合并单元格配置（支持纵向智能合并和跨列合并）
+     */
+    private MergeConfig merge;
+
     public ColumnConfig() {
     }
 
@@ -74,5 +79,13 @@ public class ColumnConfig {
 
     public void setStyle(StyleConfig style) {
         this.style = style;
+    }
+
+    public MergeConfig getMerge() {
+        return merge;
+    }
+
+    public void setMerge(MergeConfig merge) {
+        this.merge = merge;
     }
 }
