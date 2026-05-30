@@ -7,8 +7,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,7 +26,7 @@ public class SmartMergeTest {
     @Test
     void testSmartMerge_BasicSameValues() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("部门");
 
         // 配置：部门字段启用智能合并
         String configJson = """
@@ -84,7 +87,7 @@ public class SmartMergeTest {
     @Test
     void testSmartMerge_NoMergeForSingleValue() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("部门");
 
         String configJson = """
             {
@@ -126,7 +129,7 @@ public class SmartMergeTest {
     @Test
     void testSmartMerge_MultipleGroups() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("分组");
 
         String configJson = """
             {
@@ -178,7 +181,7 @@ public class SmartMergeTest {
     @Test
     void testSmartMerge_WithMinSpan() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("分组");
 
         // 配置：minSpan=3，至少 3 个相同值才合并
         String configJson = """
@@ -320,7 +323,7 @@ public class SmartMergeTest {
     @Test
     void testSmartMerge_NumericValues() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("分数");
 
         String configJson = """
             {
@@ -350,10 +353,10 @@ public class SmartMergeTest {
             // 2 个合并区域 (100 的 3 个，80 的 2 个)
             assertEquals(2, sheet.getNumMergedRegions(), "应该有 2 个合并区域");
 
-            // 验证数值 - 检查合并区域的第一个单元格
-            Cell cell1 = sheet.getRow(1).getCell(3);  // 分数列是第 4 列（索引 3）
-            Cell cell4 = sheet.getRow(4).getCell(3);
-            Cell cell6 = sheet.getRow(6).getCell(3);
+            // 验证数值 - 检查合并区域的第一个单元格（单列表格，列索引 0）
+            Cell cell1 = sheet.getRow(1).getCell(0);
+            Cell cell4 = sheet.getRow(4).getCell(0);
+            Cell cell6 = sheet.getRow(6).getCell(0);
 
             System.out.println("R1C3 type: " + cell1.getCellType() + ", value: " + cell1);
             System.out.println("R4C3 type: " + cell4.getCellType() + ", value: " + cell4);
@@ -370,7 +373,7 @@ public class SmartMergeTest {
     @Test
     void testFixedMerge_RowSpan() throws Exception {
         // 创建测试模板
-        byte[] template = createSimpleTemplate();
+        byte[] template = createSimpleTemplate("标题");
 
         // 固定区域合并：每个数据合并 2 行
         String configJson = """
@@ -412,30 +415,357 @@ public class SmartMergeTest {
         System.out.println("✓ 固定区域合并测试通过");
     }
 
+    // ========== FILL_TABLE 合并测试 ==========
+
+    @Test
+    void testFillTable_SmartMerge_ColumnLevel() throws Exception {
+        // 方案A：FILL_TABLE 列级智能合并
+        // 部门列有相同值，按部门合并；姓名列不合并
+        byte[] template = createTableTemplate("部门", "姓名");
+
+        String configJson = """
+            {
+              "version": "1.0",
+              "exports": [
+                {
+                  "key": "data",
+                  "header": {"match": "部门"},
+                  "mode": "FILL_TABLE",
+                  "columns": [
+                    {
+                      "key": "dept",
+                      "header": "部门",
+                      "merge": { "enabled": true }
+                    },
+                    {
+                      "key": "name",
+                      "header": "姓名"
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = Arrays.asList(
+            Map.of("dept", "技术部", "name", "张三"),
+            Map.of("dept", "技术部", "name", "李四"),
+            Map.of("dept", "销售部", "name", "王五"),
+            Map.of("dept", "销售部", "name", "赵六")
+        );
+        data.put("data", rows);
+
+        ExcelConfigService service = new ExcelConfigService();
+        byte[] result = service.fill(new ByteArrayInputStream(template), data, configJson);
+        saveOutput(result, "testFillTable_SmartMerge_ColumnLevel");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // 部门列：2 个合并区域
+            assertEquals(2, sheet.getNumMergedRegions(), "应该有 2 个合并区域");
+
+            // 第一个合并区域：R1-R2 合并（技术部）
+            CellRangeAddress m1 = sheet.getMergedRegion(0);
+            assertEquals(1, m1.getFirstRow());
+            assertEquals(2, m1.getLastRow());
+            assertEquals(0, m1.getFirstColumn());
+            assertEquals(0, m1.getLastColumn());
+
+            // 第二个合并区域：R3-R4 合并（销售部）
+            CellRangeAddress m2 = sheet.getMergedRegion(1);
+            assertEquals(3, m2.getFirstRow());
+            assertEquals(4, m2.getLastRow());
+            assertEquals(0, m2.getFirstColumn());
+
+            // 姓名列不合并，4 行都有值
+            assertEquals("张三", sheet.getRow(1).getCell(1).getStringCellValue());
+            assertEquals("李四", sheet.getRow(2).getCell(1).getStringCellValue());
+            assertEquals("王五", sheet.getRow(3).getCell(1).getStringCellValue());
+            assertEquals("赵六", sheet.getRow(4).getCell(1).getStringCellValue());
+        }
+
+        System.out.println("✓ FILL_TABLE 列级智能合并测试通过");
+    }
+
+    @Test
+    void testFillTable_SmartMerge_MinSpan() throws Exception {
+        // 方案A：minSpan 过滤，不满足最少合并数的列不合并
+        byte[] template = createTableTemplate("部门");
+
+        String configJson = """
+            {
+              "version": "1.0",
+              "exports": [
+                {
+                  "key": "data",
+                  "header": {"match": "部门"},
+                  "mode": "FILL_TABLE",
+                  "columns": [
+                    {
+                      "key": "dept",
+                      "header": "部门",
+                      "merge": { "enabled": true, "minSpan": 3 }
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = Arrays.asList(
+            Map.of("dept", "技术部"),
+            Map.of("dept", "技术部"),
+            Map.of("dept", "销售部")
+        );
+        data.put("data", rows);
+
+        ExcelConfigService service = new ExcelConfigService();
+        byte[] result = service.fill(new ByteArrayInputStream(template), data, configJson);
+        saveOutput(result, "testFillTable_SmartMerge_MinSpan");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            // minSpan=3，只有 2 个技术部不满足条件，不应该合并
+            assertEquals(0, sheet.getNumMergedRegions(), "minSpan=3 时不应合并");
+        }
+
+        System.out.println("✓ FILL_TABLE 列级智能合并 minSpan 测试通过");
+    }
+
+    @Test
+    void testFillTable_ColSpan_HeaderMerge() throws Exception {
+        // 方案C：表头跨列合并
+        byte[] template = createTableTemplate("地址", "列2", "列3");
+
+        String configJson = """
+            {
+              "version": "1.0",
+              "exports": [
+                {
+                  "key": "data",
+                  "header": {"match": "地址"},
+                  "mode": "FILL_TABLE",
+                  "columns": [
+                    {
+                      "key": "address",
+                      "header": "地址信息",
+                      "merge": { "colSpan": 3 }
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = Arrays.asList(
+            Map.of("address", "广东省广州市天河区")
+        );
+        data.put("data", rows);
+
+        ExcelConfigService service = new ExcelConfigService();
+        byte[] result = service.fill(new ByteArrayInputStream(template), data, configJson);
+        saveOutput(result, "testFillTable_ColSpan_HeaderMerge");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // 表头合并区域 + 数据行跨列合并区域
+            assertTrue(sheet.getNumMergedRegions() >= 1, "至少 1 个合并区域");
+            // 第一个区域是表头合并（row 0, cols 0-2）
+            CellRangeAddress m1 = sheet.getMergedRegion(0);
+            assertEquals(0, m1.getFirstRow(), "表头在 row 0");
+            assertEquals(0, m1.getLastRow());
+            assertEquals(0, m1.getFirstColumn());
+            assertEquals(2, m1.getLastColumn(), "表头跨 3 列");
+
+            // 表头内容
+            assertEquals("地址信息", sheet.getRow(0).getCell(0).getStringCellValue());
+            // 表头跨列的部分应为空
+            assertEquals(CellType.BLANK, sheet.getRow(0).getCell(1).getCellType());
+            assertEquals(CellType.BLANK, sheet.getRow(0).getCell(2).getCellType());
+        }
+
+        System.out.println("✓ FILL_TABLE 表头跨列合并测试通过");
+    }
+
+    @Test
+    void testFillTable_ColSpan_DataMerge() throws Exception {
+        // 方案C：数据行跨列合并 + Smart Merge 纵向合并
+        byte[] template = createTableTemplate("备注", "列2", "列3", "列4");
+
+        String configJson = """
+            {
+              "version": "1.0",
+              "exports": [
+                {
+                  "key": "data",
+                  "header": {"match": "备注"},
+                  "mode": "FILL_TABLE",
+                  "columns": [
+                    {
+                      "key": "remark",
+                      "header": "备注信息",
+                      "merge": { "colSpan": 3, "enabled": true }
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = Arrays.asList(
+            Map.of("remark", "待处理"),
+            Map.of("remark", "待处理"),
+            Map.of("remark", "已完成")
+        );
+        data.put("data", rows);
+
+        ExcelConfigService service = new ExcelConfigService();
+        byte[] result = service.fill(new ByteArrayInputStream(template), data, configJson);
+        saveOutput(result, "testFillTable_ColSpan_DataMerge");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // 1 个表头合并 + 2 个数据合并（智能合并：待处理行合并，已完成单行不合并）
+            assertTrue(sheet.getNumMergedRegions() >= 2, "至少 2 个合并区域（表头 + 数据 smart merge）");
+
+            // 验证表头跨列
+            assertEquals("备注信息", sheet.getRow(0).getCell(0).getStringCellValue());
+
+            // 验证数据跨列：row1 和 row2 合并（待处理），row3 单独
+            // row1 的 3 列都应跨列到第一列有值
+            Cell cellR1 = sheet.getRow(1).getCell(0);
+            assertEquals("待处理", cellR1.getStringCellValue());
+            // 跨列部分为空
+            assertEquals(CellType.BLANK, sheet.getRow(1).getCell(1).getCellType());
+            assertEquals(CellType.BLANK, sheet.getRow(1).getCell(2).getCellType());
+            // 最后一个单元格没跨列
+            assertEquals("已完成", sheet.getRow(3).getCell(0).getStringCellValue());
+        }
+
+        System.out.println("✓ FILL_TABLE 数据跨列 + 智能合并测试通过");
+    }
+
+    @Test
+    void testFillTable_MixedColumns_ColSpanAndNormal() throws Exception {
+        // 方案A+C混合：跨列合并列 + 普通列共存
+        byte[] template = createTableTemplate("地址", "姓名");
+
+        String configJson = """
+            {
+              "version": "1.0",
+              "exports": [
+                {
+                  "key": "data",
+                  "header": {"match": "地址"},
+                  "mode": "FILL_TABLE",
+                  "columns": [
+                    {
+                      "key": "address",
+                      "header": "地址",
+                      "merge": { "colSpan": 3, "enabled": true }
+                    },
+                    {
+                      "key": "name",
+                      "header": "姓名"
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = Arrays.asList(
+            Map.of("address", "广州", "name", "张三"),
+            Map.of("address", "广州", "name", "李四"),
+            Map.of("address", "深圳", "name", "王五")
+        );
+        data.put("data", rows);
+
+        ExcelConfigService service = new ExcelConfigService();
+        byte[] result = service.fill(new ByteArrayInputStream(template), data, configJson);
+        saveOutput(result, "testFillTable_MixedColumns_ColSpanAndNormal");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // 表头合并(1)：地址跨 3 列
+            // 地址列 smart merge(1)：广州 R1-2 合并，深圳单列不合并
+            // 所以至少 2 个合并区域
+            assertTrue(sheet.getNumMergedRegions() >= 2, "至少 2 个合并区域");
+
+            // 姓名列（物理列位置 = 3）：不受影响
+            assertEquals("张三", sheet.getRow(1).getCell(3).getStringCellValue());
+            assertEquals("李四", sheet.getRow(2).getCell(3).getStringCellValue());
+            assertEquals("王五", sheet.getRow(3).getCell(3).getStringCellValue());
+        }
+
+        System.out.println("✓ FILL_TABLE 混合列测试通过");
+    }
+
     // ===== 辅助方法 =====
 
-    private byte[] createSimpleTemplate() throws Exception {
+    /** 测试输出文件保存目录 */
+    private static final Path OUTPUT_DIR = Path.of("/Users/huangzhenzhen/Documents/excel-test/未命名文件夹");
+
+    static {
+        try {
+            Files.createDirectories(OUTPUT_DIR);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void saveOutput(byte[] data, String name) {
+        try {
+            Path file = OUTPUT_DIR.resolve(name + ".xlsx");
+            Files.write(file, data);
+            System.out.println("已保存: " + file);
+        } catch (Exception e) {
+            System.err.println("保存失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 创建适用于 FILL_TABLE 的模板：可指定表头文字
+     */
+    private byte[] createTableTemplate(String... headers) throws Exception {
+        int colCount = headers.length;
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             var sheet = workbook.createSheet("Test");
-
-            // 表头
             var headerRow = sheet.createRow(0);
-            headerRow.createCell(0).setCellValue("部门");
-            headerRow.createCell(1).setCellValue("姓名");
-            headerRow.createCell(2).setCellValue("分组");
-            headerRow.createCell(3).setCellValue("分数");
-            headerRow.createCell(4).setCellValue("标题");
+            for (int i = 0; i < colCount; i++) {
+                headerRow.createCell(i).setCellValue(headers[i]);
+            }
+            // 预留 20 行数据空间
+            for (int i = 1; i <= 20; i++) {
+                var row = sheet.createRow(i);
+                for (int c = 0; c < colCount; c++) {
+                    row.createCell(c);
+                }
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            workbook.write(baos);
+            return baos.toByteArray();
+        }
+    }
 
-            // 预留数据行
-            for (int i = 1; i <= 10; i++) {
+    private byte[] createSimpleTemplate(String header) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            var sheet = workbook.createSheet("Test");
+            var headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue(header);
+            // 预留 20 行数据空间
+            for (int i = 1; i <= 20; i++) {
                 var row = sheet.createRow(i);
                 row.createCell(0);
-                row.createCell(1);
-                row.createCell(2);
-                row.createCell(3);
-                row.createCell(4);
             }
-
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             workbook.write(baos);
             return baos.toByteArray();
