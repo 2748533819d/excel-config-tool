@@ -29,7 +29,7 @@
 <dependency>
     <groupId>io.github.cynosure-tech</groupId>
     <artifactId>excel-config-core</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2-SNAPSHOT</version>
 </dependency>
 ```
 
