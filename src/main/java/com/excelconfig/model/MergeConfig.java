@@ -147,6 +147,8 @@ public class MergeConfig {
 
     /**
      * 是否是智能合并模式（按数据值合并）
+     *
+     * @return true 表示启用智能合并
      */
     public boolean isSmartMerge() {
         return Boolean.TRUE.equals(enabled);
@@ -154,8 +156,10 @@ public class MergeConfig {
 
     /**
      * 是否是固定区域合并模式
+     *
+     * @return true 表示是固定区域合并模式
      */
-    public boolean isFixedMerge() {
+    public boolean isFixedArea() {
         return rowSpan != null || colSpan != null;
     }
 }

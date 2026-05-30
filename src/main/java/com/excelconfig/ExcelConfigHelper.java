@@ -7,6 +7,7 @@ import com.excelconfig.model.ExcelConfig;
 import com.excelconfig.util.JsonUtil;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -111,6 +112,22 @@ public class ExcelConfigHelper {
         return new ExcelConfigHelper().setTemplateStream(templateStream);
     }
 
+    /**
+     * 执行填充操作，返回字节数组
+     *
+     * @return 填充后的 Excel 文件字节数组
+     * @throws ExcelConfigException 填充失败时抛出
+     */
+    public byte[] write() {
+        validateFillParams();
+        try {
+            ExcelConfig config = getConfigObject();
+            return fillEngine.fill(getTemplateStream(), data, config);
+        } catch (IOException e) {
+            throw new ExcelConfigException("填充数据失败：" + e.getMessage(), e);
+        }
+    }
+
     // ========== 配置方法 ==========
 
     /**
@@ -118,8 +135,9 @@ public class ExcelConfigHelper {
      *
      * @param configPath 配置文件路径
      * @return this
+     * @throws IOException 读取配置文件失败时抛出
      */
-    public ExcelConfigHelper config(String configPath) throws Exception {
+    public ExcelConfigHelper config(String configPath) throws IOException {
         Path path = Path.of(configPath);
         this.configJson = Files.readString(path);
         return this;
@@ -130,8 +148,9 @@ public class ExcelConfigHelper {
      *
      * @param configFile 配置文件
      * @return this
+     * @throws IOException 读取配置文件失败时抛出
      */
-    public ExcelConfigHelper config(File configFile) throws Exception {
+    public ExcelConfigHelper config(File configFile) throws IOException {
         this.configJson = Files.readString(configFile.toPath());
         return this;
     }
@@ -177,13 +196,14 @@ public class ExcelConfigHelper {
      * 执行提取操作
      *
      * @return 提取的数据 Map
+     * @throws ExcelConfigException 提取数据失败时抛出
      */
     public Map<String, Object> extract() {
         validateExtractParams();
         try {
             ExcelConfig config = getConfigObject();
             return extractEngine.extract(getTemplateStream(), config);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new ExcelConfigException("提取数据失败：" + e.getMessage(), e);
         }
     }
@@ -203,24 +223,10 @@ public class ExcelConfigHelper {
     // ========== 填充方法 ==========
 
     /**
-     * 执行填充操作，返回字节数组
-     *
-     * @return 填充后的 Excel 文件字节数组
-     */
-    public byte[] write() {
-        validateFillParams();
-        try {
-            ExcelConfig config = getConfigObject();
-            return fillEngine.fill(getTemplateStream(), data, config);
-        } catch (Exception e) {
-            throw new ExcelConfigException("填充数据失败：" + e.getMessage(), e);
-        }
-    }
-
-    /**
      * 执行填充操作并写入文件
      *
      * @param outputPath 输出文件路径
+     * @throws ExcelConfigException 写入失败时抛出
      */
     public void writeTo(String outputPath) {
         writeTo(Path.of(outputPath));
@@ -239,6 +245,7 @@ public class ExcelConfigHelper {
      * 执行填充操作并写入文件
      *
      * @param outputPath 输出文件路径
+     * @throws ExcelConfigException 写入文件失败时抛出
      */
     public void writeTo(Path outputPath) {
         byte[] result = write();
@@ -253,6 +260,7 @@ public class ExcelConfigHelper {
      * 执行填充操作并写入输出流
      *
      * @param output 输出流
+     * @throws ExcelConfigException 写入输出流失败时抛出
      */
     public void writeTo(OutputStream output) {
         byte[] result = write();
@@ -266,7 +274,7 @@ public class ExcelConfigHelper {
 
     // ========== 私有方法 ==========
 
-    private ExcelConfig getConfigObject() throws Exception {
+    private ExcelConfig getConfigObject() throws IOException {
         if (configObject != null) {
             return configObject;
         }

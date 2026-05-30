@@ -4,13 +4,14 @@ import com.excelconfig.locator.HeaderLocator;
 import com.excelconfig.locator.HeaderPosition;
 import com.excelconfig.model.ExtractConfig;
 import com.excelconfig.model.ExcelConfig;
-import com.excelconfig.model.HeaderConfig;
 import com.excelconfig.model.PositionConfig;
 import com.excelconfig.spi.ExtractContext;
 import com.excelconfig.spi.ExtractStrategy;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.util.*;
@@ -25,6 +26,8 @@ import java.util.*;
  */
 public class ExtractEngine {
 
+    private static final Logger log = LoggerFactory.getLogger(ExtractEngine.class);
+
     private final HeaderLocator headerLocator;
     private final Map<com.excelconfig.spi.ExtractMode, ExtractStrategy> strategies;
 
@@ -32,6 +35,7 @@ public class ExtractEngine {
         this.headerLocator = new HeaderLocator();
         this.strategies = new EnumMap<>(com.excelconfig.spi.ExtractMode.class);
         registerBuiltInStrategies();
+        log.debug("ExtractEngine initialized with {} strategies", strategies.size());
     }
 
     /**
@@ -50,8 +54,10 @@ public class ExtractEngine {
 
     /**
      * 注册提取策略
+     *
+     * @param strategy 提取策略实例
      */
-    public void registerStrategy(ExtractStrategy strategy) {
+    private void registerStrategy(ExtractStrategy strategy) {
         strategies.put(strategy.getSupportedMode(), strategy);
     }
 
@@ -61,23 +67,29 @@ public class ExtractEngine {
      * @param input Excel 文件输入流
      * @param config 配置
      * @return 提取结果 Map<String, Object>
+     * @throws ExtractException 提取失败时抛出
      */
     public Map<String, Object> extract(InputStream input, ExcelConfig config) {
-        try {
-            Workbook workbook = WorkbookFactory.create(input);
+        log.info("开始提取数据：{} 个配置项", config.getExtractions().size());
+        long startTime = System.currentTimeMillis();
+
+        try (Workbook workbook = WorkbookFactory.create(input)) {
             Sheet sheet = workbook.getSheetAt(0);
 
             Map<String, Object> result = new HashMap<>();
 
             for (ExtractConfig extractConfig : config.getExtractions()) {
+                log.debug("提取配置 [{}] 模式={}", extractConfig.getKey(), extractConfig.getMode());
                 List<Object> data = extract(sheet, extractConfig);
                 result.put(extractConfig.getKey(), data);
+                log.debug("提取配置 [{}] 完成：{} 条数据", extractConfig.getKey(), data.size());
             }
 
-            workbook.close();
+            log.info("提取完成，耗时 {}ms", System.currentTimeMillis() - startTime);
             return result;
 
         } catch (Exception e) {
+            log.error("提取失败", e);
             throw new ExtractException("提取失败：" + e.getMessage(), e);
         }
     }

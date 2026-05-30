@@ -4,7 +4,6 @@ import com.excelconfig.locator.HeaderLocator;
 import com.excelconfig.locator.HeaderPosition;
 import com.excelconfig.model.ExportConfig;
 import com.excelconfig.model.ExcelConfig;
-import com.excelconfig.model.HeaderConfig;
 import com.excelconfig.model.PositionConfig;
 import com.excelconfig.extract.CellReference;
 import com.excelconfig.spi.FillContext;
@@ -14,7 +13,6 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +49,10 @@ public class FillEngine {
 
     /**
      * 注册填充策略
+     *
+     * @param strategy 填充策略实例
      */
-    public void registerStrategy(FillStrategy strategy) {
+    private void registerStrategy(FillStrategy strategy) {
         strategies.put(strategy.getSupportedMode(), strategy);
     }
 
@@ -63,10 +63,13 @@ public class FillEngine {
      * @param data 数据
      * @param config 配置
      * @return 填充后的 Excel 文件字节数组
+     * @throws FillException 填充失败时抛出
      */
     public byte[] fill(InputStream template, Map<String, Object> data, ExcelConfig config) {
-        try {
-            Workbook workbook = WorkbookFactory.create(template);
+        log.info("开始填充数据：{} 个配置项", config.getExports().size());
+        long startTime = System.currentTimeMillis();
+
+        try (Workbook workbook = WorkbookFactory.create(template)) {
 
             // 按行号从下往上处理，避免覆盖
             List<ExportConfig> sortedExports = new ArrayList<>(config.getExports());
@@ -77,15 +80,17 @@ public class FillEngine {
             });
 
             for (ExportConfig exportConfig : sortedExports) {
+                log.debug("填充配置 [{}] 模式={}", exportConfig.getKey(), exportConfig.getMode());
                 fill(workbook, data, exportConfig);
             }
 
             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
             workbook.write(output);
-            workbook.close();
+            log.info("填充完成，耗时 {}ms，输出 {} 字节", System.currentTimeMillis() - startTime, output.size());
             return output.toByteArray();
 
         } catch (Exception e) {
+            log.error("填充失败", e);
             throw new FillException("填充失败：" + e.getMessage(), e);
         }
     }

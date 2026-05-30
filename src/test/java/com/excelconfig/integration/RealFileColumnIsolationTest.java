@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class RealFileColumnIsolationTest {
 
-    private static final String OUTPUT_DIR = "/Users/huangzhenzhen/Documents/excel-test/";
+    private static final String OUTPUT_DIR = System.getProperty("java.io.tmpdir") + "/excel-config-test/";
 
     // ==================== 核心需求测试 ====================
 

@@ -3,10 +3,9 @@ package com.excelconfig.export;
 import com.excelconfig.model.ExportConfig;
 import com.excelconfig.spi.FillContext;
 import com.excelconfig.spi.FillStrategy;
+import com.excelconfig.util.CellValueUtil;
+import com.excelconfig.util.StyleCache;
 import org.apache.poi.ss.usermodel.*;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * 填充单个单元格策略（FILL_CELL 模式）
@@ -24,79 +23,51 @@ class FillCellStrategy implements FillStrategy {
 
         // 获取数据
         Object data = context.getData().get(config.getKey());
-        fillCell(targetCell, data, config.getStyle());
+        fillCell(targetCell, data, config.getStyle(), workbook);
     }
 
     /**
      * 填充单元格
      */
     protected void fillCell(Cell cell, Object value, com.excelconfig.model.StyleConfig style) {
-        if (value == null) {
-            cell.setBlank();
-            return;
-        }
+        fillCell(cell, value, style, cell.getSheet().getWorkbook());
+    }
 
-        if (value instanceof String) {
-            cell.setCellValue((String) value);
-        } else if (value instanceof Number) {
-            cell.setCellValue(((Number) value).doubleValue());
-        } else if (value instanceof Boolean) {
-            cell.setCellValue((Boolean) value);
-        } else if (value instanceof java.util.Date) {
-            cell.setCellValue((java.util.Date) value);
-        } else {
-            cell.setCellValue(value.toString());
-        }
+    protected void fillCell(Cell cell, Object value, com.excelconfig.model.StyleConfig style, Workbook workbook) {
+        fillCell(cell, value, style, new StyleCache(workbook));
+    }
 
-        // 应用样式
+    /**
+     * 填充单元格（使用外部传入的 StyleCache，实现 fill() 级别复用）
+     */
+    protected void fillCell(Cell cell, Object value, com.excelconfig.model.StyleConfig style, StyleCache styleCache) {
+        CellValueUtil.setCellValue(cell, value);
+
+        // 应用样式（使用缓存）
         if (style != null) {
-            applyStyle(cell, style);
+            CellStyle cellStyle = styleCache.getOrCreateStyle(style);
+            if (cellStyle != null) {
+                cell.setCellStyle(cellStyle);
+            }
         }
     }
 
     /**
-     * 应用样式
+     * 应用样式（使用缓存）
      */
     protected void applyStyle(Cell cell, com.excelconfig.model.StyleConfig style) {
-        // POI 的 CellStyle 在 Workbook 级别共享，必须创建新实例而非修改 getCellStyle() 返回的样式
-        CellStyle cellStyle = cell.getSheet().getWorkbook().createCellStyle();
+        applyStyle(cell, style, cell.getSheet().getWorkbook());
+    }
 
-        // 水平对齐
-        if (style.getHorizontalAlign() != null) {
-            switch (style.getHorizontalAlign().toUpperCase()) {
-                case "LEFT":
-                    cellStyle.setAlignment(HorizontalAlignment.LEFT);
-                    break;
-                case "CENTER":
-                    cellStyle.setAlignment(HorizontalAlignment.CENTER);
-                    break;
-                case "RIGHT":
-                    cellStyle.setAlignment(HorizontalAlignment.RIGHT);
-                    break;
-            }
+    protected void applyStyle(Cell cell, com.excelconfig.model.StyleConfig style, Workbook workbook) {
+        applyStyle(cell, style, new StyleCache(workbook));
+    }
+
+    protected void applyStyle(Cell cell, com.excelconfig.model.StyleConfig style, StyleCache styleCache) {
+        CellStyle cellStyle = styleCache.getOrCreateStyle(style);
+        if (cellStyle != null) {
+            cell.setCellStyle(cellStyle);
         }
-
-        // 垂直对齐
-        if (style.getVerticalAlign() != null) {
-            switch (style.getVerticalAlign().toUpperCase()) {
-                case "TOP":
-                    cellStyle.setVerticalAlignment(VerticalAlignment.TOP);
-                    break;
-                case "CENTER":
-                    cellStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-                    break;
-                case "BOTTOM":
-                    cellStyle.setVerticalAlignment(VerticalAlignment.BOTTOM);
-                    break;
-            }
-        }
-
-        // 数字格式
-        if (style.getFormat() != null) {
-            cellStyle.setDataFormat(cell.getSheet().getWorkbook().createDataFormat().getFormat(style.getFormat()));
-        }
-
-        cell.setCellStyle(cellStyle);
     }
 
     protected Row getOrCreateRow(Sheet sheet, int rowNum) {

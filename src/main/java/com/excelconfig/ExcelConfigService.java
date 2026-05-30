@@ -32,6 +32,7 @@ public class ExcelConfigService {
      * @param template Excel 模板输入流
      * @param configJson 配置 JSON 字符串
      * @return 提取的数据 Map
+     * @throws ExcelConfigException 提取失败时抛出
      */
     public Map<String, Object> extract(InputStream template, String configJson) {
         ExcelConfig config = parseConfig(configJson);
@@ -56,6 +57,7 @@ public class ExcelConfigService {
      * @param data 数据 Map
      * @param configJson 配置 JSON 字符串
      * @return 填充后的 Excel 文件字节数组
+     * @throws ExcelConfigException 填充失败时抛出
      */
     public byte[] fill(InputStream template, Map<String, Object> data, String configJson) {
         ExcelConfig config = parseConfig(configJson);
@@ -69,6 +71,7 @@ public class ExcelConfigService {
      * @param data 数据 Map
      * @param config 配置对象
      * @return 填充后的 Excel 文件字节数组
+     * @throws ExcelConfigException 填充失败时抛出
      */
     public byte[] fill(InputStream template, Map<String, Object> data, ExcelConfig config) {
         return fillEngine.fill(template, data, config);
@@ -81,6 +84,7 @@ public class ExcelConfigService {
      * @param data 数据 Map
      * @param configJson 配置 JSON 字符串
      * @param output 输出流
+     * @throws ExcelConfigException 写入输出流失败时抛出
      */
     public void fill(InputStream template, Map<String, Object> data, String configJson, OutputStream output) {
         byte[] result = fill(template, data, configJson);
@@ -99,6 +103,7 @@ public class ExcelConfigService {
      * @param data 数据 Map
      * @param config 配置对象
      * @param output 输出流
+     * @throws ExcelConfigException 写入输出流失败时抛出
      */
     public void fill(InputStream template, Map<String, Object> data, ExcelConfig config, OutputStream output) {
         byte[] result = fill(template, data, config);
@@ -115,6 +120,7 @@ public class ExcelConfigService {
      *
      * @param configJson 配置 JSON 字符串
      * @return 配置对象
+     * @throws ExcelConfigException 解析 JSON 配置失败时抛出
      */
     public ExcelConfig parseConfig(String configJson) {
         try {

@@ -4,6 +4,7 @@ import com.excelconfig.model.ExportConfig;
 import com.excelconfig.model.MergeConfig;
 import com.excelconfig.spi.FillContext;
 import com.excelconfig.spi.FillStrategy;
+import com.excelconfig.util.StyleCache;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 
@@ -45,17 +46,20 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
         // 先下移填充区域内的原有数据
         shiftExistingDataInRange(sheet, startRow, fillRows, column);
 
+        // 创建一次 StyleCache，在整个 fill() 生命周期内复用
+        StyleCache styleCache = new StyleCache(workbook);
+
         // 检查是否有合并配置
         MergeConfig merge = config.getMerge();
         if (merge != null && merge.isSmartMerge()) {
             // 智能合并模式：按数据值合并相同值的单元格
-            fillWithSmartMerge(sheet, dataList, fillRows, startRow, column, config.getStyle(), merge);
-        } else if (merge != null && merge.isFixedMerge()) {
+            fillWithSmartMerge(sheet, dataList, fillRows, startRow, column, config.getStyle(), merge, styleCache);
+        } else if (merge != null && merge.isFixedArea()) {
             // 固定区域合并模式
-            fillWithFixedMerge(sheet, dataList, fillRows, startRow, column, config.getStyle(), merge);
+            fillWithFixedMerge(sheet, dataList, fillRows, startRow, column, config.getStyle(), merge, styleCache);
         } else {
             // 普通填充模式
-            fillNormal(sheet, dataList, fillRows, startRow, column, config.getStyle());
+            fillNormal(sheet, dataList, fillRows, startRow, column, config.getStyle(), styleCache);
         }
     }
 
@@ -63,11 +67,11 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
      * 普通填充模式（无合并）
      */
     private void fillNormal(Sheet sheet, List<?> dataList, int fillRows, int startRow, int column,
-                            com.excelconfig.model.StyleConfig style) {
+                            com.excelconfig.model.StyleConfig style, StyleCache styleCache) {
         for (int i = 0; i < fillRows; i++) {
             Row row = getOrCreateRow(sheet, startRow + i);
             Cell cell = getOrCreateCell(row, column);
-            fillCell(cell, dataList.get(i), style);
+            fillCell(cell, dataList.get(i), style, styleCache);
         }
     }
 
@@ -80,7 +84,8 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
      * 3. 只在区间的第一个单元格填入值
      */
     private void fillWithSmartMerge(Sheet sheet, List<?> dataList, int fillRows, int startRow, int column,
-                                    com.excelconfig.model.StyleConfig style, MergeConfig merge) {
+                                    com.excelconfig.model.StyleConfig style, MergeConfig merge,
+                                    StyleCache styleCache) {
         int minSpan = merge.getMinSpan() != null ? merge.getMinSpan() : 2;
         int maxSpan = merge.getMaxSpan() != null ? merge.getMaxSpan() : Integer.MAX_VALUE;
 
@@ -91,7 +96,7 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
         for (int i = 0; i < fillRows; i++) {
             Row row = getOrCreateRow(sheet, startRow + i);
             Cell cell = getOrCreateCell(row, column);
-            fillCell(cell, dataList.get(i), style);
+            fillCell(cell, dataList.get(i), style, styleCache);
         }
 
         // 再创建合并区域
@@ -175,7 +180,8 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
      * 每个数据按 rowSpan/colSpan 指定的大小合并，起始位置累加
      */
     private void fillWithFixedMerge(Sheet sheet, List<?> dataList, int fillRows, int startRow, int column,
-                                    com.excelconfig.model.StyleConfig style, MergeConfig merge) {
+                                    com.excelconfig.model.StyleConfig style, MergeConfig merge,
+                                    StyleCache styleCache) {
         int rowSpan = merge.getRowSpan() != null ? merge.getRowSpan() : 1;
         int colSpan = merge.getColSpan() != null ? merge.getColSpan() : 1;
         int startRowOffset = merge.getStartRowOffset() != null ? merge.getStartRowOffset() : 0;
@@ -197,7 +203,7 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
                 // 填充数据到合并区域的第一个单元格
                 Row row = getOrCreateRow(sheet, mergeStartRow);
                 Cell cell = getOrCreateCell(row, mergeStartCol);
-                fillCell(cell, dataList.get(i), style);
+                fillCell(cell, dataList.get(i), style, styleCache);
 
                 // 清除合并区域内的其他单元格
                 clearMergedCells(sheet, mergeStartRow, mergeEndRow, mergeStartCol, mergeEndCol);
@@ -221,10 +227,10 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
      * 检查两个合并区域是否重叠
      */
     private boolean regionsOverlap(CellRangeAddress r1, CellRangeAddress r2) {
-        return !(r1.getLastRow() < r2.getFirstRow() ||
-                r1.getFirstRow() > r2.getLastRow() ||
-                r1.getLastColumn() < r2.getFirstColumn() ||
-                r1.getFirstColumn() > r2.getLastColumn());
+        return !(r1.getLastRow() < r2.getFirstRow()
+                || r1.getFirstRow() > r2.getLastRow()
+                || r1.getLastColumn() < r2.getFirstColumn()
+                || r1.getFirstColumn() > r2.getLastColumn());
     }
 
     /**
@@ -312,10 +318,17 @@ class FillDownStrategy extends FillCellStrategy implements FillStrategy {
         if (data instanceof List) {
             return (List<?>) data;
         } else if (data instanceof Collection) {
-            return (List<?>) data;
-        } else if (data.getClass().isArray()) {
-            Object[] array = (Object[]) data;
-            return java.util.Arrays.asList(array);
+            return new ArrayList<>((Collection<?>) data);
+        } else if (data != null && data.getClass().isArray()) {
+            if (data instanceof Object[]) {
+                return java.util.Arrays.asList((Object[]) data);
+            }
+            int length = java.lang.reflect.Array.getLength(data);
+            List<Object> list = new ArrayList<>(length);
+            for (int i = 0; i < length; i++) {
+                list.add(java.lang.reflect.Array.get(data, i));
+            }
+            return list;
         } else {
             return java.util.Collections.singletonList(data);
         }
