@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 提取到空行停止策略（UNTIL_EMPTY 模式）
  */
-public class UntilEmptyExtractStrategy implements ExtractStrategy {
+class UntilEmptyExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 

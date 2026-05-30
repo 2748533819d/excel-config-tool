@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * 单个单元格提取策略（SINGLE 模式）
  */
-public class SingleExtractStrategy implements ExtractStrategy {
+class SingleExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 

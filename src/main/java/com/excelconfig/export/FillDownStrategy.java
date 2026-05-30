@@ -19,7 +19,7 @@ import java.util.List;
  * 2. 检查下方是否有其他表，如有需要则下移
  * 3. 支持合并单元格（智能合并和固定区域合并）
  */
-public class FillDownStrategy extends FillCellStrategy implements FillStrategy {
+class FillDownStrategy extends FillCellStrategy implements FillStrategy {
 
     @Override
     public void fill(Workbook workbook, ExportConfig config, FillContext context) {

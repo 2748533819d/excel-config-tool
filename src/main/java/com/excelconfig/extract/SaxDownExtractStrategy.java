@@ -13,11 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 基于 SAX 流式读取的向下提取策略
+ * 基于 SAX 事件模型的向下提取策略
  *
- * 适用于大文件场景，内存优化
+ * 使用 SAX 解析器读取数据，相比 POI 用户模型能减少初始解析的内存开销。
+ * 但当前实现中仍将表头查找后的数据全部读入内存处理，并非完全流式。
+ * 对于超大文件场景，建议后续优化为真正的流式处理（逐行回调）。
  */
-public class SaxDownExtractStrategy implements ExtractStrategy {
+class SaxDownExtractStrategy implements ExtractStrategy {
 
     @Override
     public List<Object> extract(Sheet sheet, ExtractConfig config, ExtractContext context) {

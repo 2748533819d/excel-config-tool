@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 区域提取策略（BLOCK 模式）
  */
-public class BlockExtractStrategy implements ExtractStrategy {
+class BlockExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 

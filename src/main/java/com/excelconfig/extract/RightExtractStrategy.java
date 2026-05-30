@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 向右提取策略（RIGHT 模式）
  */
-public class RightExtractStrategy implements ExtractStrategy {
+class RightExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 

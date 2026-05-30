@@ -18,7 +18,7 @@ import java.util.List;
  * 2. 达到 maxRows 限制
  * 3. 到达 sheet 末尾
  */
-public class DownExtractStrategy implements ExtractStrategy {
+class DownExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 

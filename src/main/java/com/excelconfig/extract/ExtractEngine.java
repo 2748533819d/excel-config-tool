@@ -85,7 +85,7 @@ public class ExtractEngine {
     /**
      * 提取单个配置
      */
-    public List<Object> extract(Sheet sheet, ExtractConfig config) {
+    List<Object> extract(Sheet sheet, ExtractConfig config) {
         try {
             // 1. 定位表头
             HeaderPosition headerPos = locateHeader(sheet, config);
