@@ -293,8 +293,13 @@ excel-config-tool/
 │   │       ├── config/                    # JSON 配置解析
 │   │       └── sax/                       # SAX 流式读取
 │   └── test/java/                         # 单元测试
+│       ├── com/excelconfig/               # 功能测试
+│       │   └── performance/               # 性能测试
+│       └── ...
 ├── docs/                                  # 设计文档
 ├── examples/                              # 使用示例
+├── checkstyle/                            # Checkstyle 规则
+├── .github/workflows/                     # CI 流程
 └── pom.xml                                # Maven 配置
 ```
 
@@ -328,9 +333,26 @@ mvn test
 ### 测试结果
 
 ```
-[INFO] Tests run: 57, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 73, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
+
+---
+
+## ⚡ 性能
+
+内置大数据量性能测试 `FillEnginePerformanceTest`，覆盖 FillDown 和 FillTable 两种主要填充模式：
+
+| 测试场景 | 数据量 | 耗时 | 吞吐量 |
+|---------|--------|------|--------|
+| FillDown 填充 | 1,000 ~ 10,000 行 | 19 ~ 186 ms | — |
+| FillTable 表格填充 | 1,000×5 列 | ~30 ms | — |
+| FillTable 表格填充 | 5,000×5 列 | ~150 ms | — |
+| FillTable 表格填充 | 10,000×10 列（100K 单元格） | ~2,160 ms | 46,296 cells/s |
+| FillTable 表格填充 | 100,000×10 列（1,000,000 单元格） | ~13,200 ms | 75,758 cells/s |
+| 隔行换色 + 多列填充 | 5,000 行 | ~100 ms | 50 μs/row |
+
+所有性能测试可在 CI 中直接运行，输出样例文件至指定目录，方便人工复核。
 
 ---
 
