@@ -3,7 +3,7 @@ package com.excelconfig.extract;
 import com.excelconfig.model.ParserConfig;
 import com.excelconfig.spi.CellParser;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
+
 import org.apache.poi.ss.usermodel.DateUtil;
 
 import java.time.LocalDate;

@@ -17,7 +17,7 @@ class UntilEmptyExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 
-    public UntilEmptyExtractStrategy() {
+    UntilEmptyExtractStrategy() {
         this.cellParser = new DefaultCellParser();
     }
 

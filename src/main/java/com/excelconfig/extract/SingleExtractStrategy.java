@@ -7,7 +7,6 @@ import com.excelconfig.spi.ExtractContext;
 import com.excelconfig.spi.ExtractStrategy;
 import org.apache.poi.ss.usermodel.*;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -18,7 +17,7 @@ class SingleExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 
-    public SingleExtractStrategy() {
+    SingleExtractStrategy() {
         this.cellParser = new DefaultCellParser();
     }
 

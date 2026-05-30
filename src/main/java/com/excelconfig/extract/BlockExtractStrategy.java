@@ -17,7 +17,7 @@ class BlockExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 
-    public BlockExtractStrategy() {
+    BlockExtractStrategy() {
         this.cellParser = new DefaultCellParser();
     }
 

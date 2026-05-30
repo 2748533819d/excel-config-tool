@@ -22,7 +22,7 @@ class DownExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 
-    public DownExtractStrategy() {
+    DownExtractStrategy() {
         this.cellParser = new DefaultCellParser();
     }
 

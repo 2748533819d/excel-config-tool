@@ -79,8 +79,8 @@ class SaxDownExtractStrategy implements ExtractStrategy {
 
         // 提取数据
         List<Object> result = new ArrayList<>();
-        int maxRows = rangeConfig != null && rangeConfig.getMaxRows() != null ?
-                rangeConfig.getMaxRows() : Integer.MAX_VALUE;
+        int maxRows = rangeConfig != null && rangeConfig.getMaxRows() != null
+                ? rangeConfig.getMaxRows() : Integer.MAX_VALUE;
         boolean skipEmpty = rangeConfig != null && Boolean.TRUE.equals(rangeConfig.getSkipEmpty());
 
         for (int rowNum = headerRowIndex + 1; rowNum < allRows.size() && result.size() < maxRows; rowNum++) {

@@ -17,7 +17,7 @@ class RightExtractStrategy implements ExtractStrategy {
 
     private final CellParser cellParser;
 
-    public RightExtractStrategy() {
+    RightExtractStrategy() {
         this.cellParser = new DefaultCellParser();
     }
 
