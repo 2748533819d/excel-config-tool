@@ -3,9 +3,11 @@ package com.excelconfig.util;
 import com.excelconfig.model.StyleConfig;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.DefaultIndexedColorMap;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +106,7 @@ public class StyleCache {
             if (hasBold) {
                 font.setBold(true);
             }
-            if (hasFontColor && workbook instanceof XSSFWorkbook) {
+            if (hasFontColor && (workbook instanceof XSSFWorkbook || workbook instanceof SXSSFWorkbook)) {
                 applyFontColorToFont(font, style.getFontColor());
             }
             cellStyle.setFont(font);
@@ -114,7 +116,7 @@ public class StyleCache {
     }
 
     private void applyBackgroundColor(CellStyle cellStyle, String colorHex) {
-        if (workbook instanceof XSSFWorkbook) {
+        if (workbook instanceof XSSFWorkbook || workbook instanceof SXSSFWorkbook) {
             try {
                 String hex = colorHex.startsWith("#") ? colorHex.substring(1) : colorHex;
                 if (hex.length() == 6) {
@@ -147,6 +149,111 @@ public class StyleCache {
             } catch (Exception e) {
                 log.warn("解析字体颜色失败 [{}]: {}", colorHex, e.getMessage());
             }
+        }
+    }
+
+    // ========== 跨 workbook 样式克隆（用于 SXSSF 流式写入时复制模板样式） ==========
+
+    /**
+     * 将源 CellStyle 的全部属性克隆到目标 workbook 中，返回新创建的 CellStyle
+     */
+    public static CellStyle cloneCellStyle(CellStyle source, Workbook targetWorkbook) {
+        CellStyle target = targetWorkbook.createCellStyle();
+
+        // 对齐
+        target.setAlignment(source.getAlignment());
+        target.setVerticalAlignment(source.getVerticalAlignment());
+        target.setWrapText(source.getWrapText());
+        target.setRotation(source.getRotation());
+        target.setIndention(source.getIndention());
+
+        // 边框
+        target.setBorderTop(source.getBorderTop());
+        target.setBorderBottom(source.getBorderBottom());
+        target.setBorderLeft(source.getBorderLeft());
+        target.setBorderRight(source.getBorderRight());
+        target.setTopBorderColor(source.getTopBorderColor());
+        target.setBottomBorderColor(source.getBottomBorderColor());
+        target.setLeftBorderColor(source.getLeftBorderColor());
+        target.setRightBorderColor(source.getRightBorderColor());
+
+        // 填充
+        target.setFillPattern(source.getFillPattern());
+        target.setFillBackgroundColor(source.getFillBackgroundColor());
+        cloneFillForegroundColor(source, target, targetWorkbook);
+
+        // 数字格式
+        target.setDataFormat(source.getDataFormat());
+
+        // 隐藏/锁定
+        target.setHidden(source.getHidden());
+        target.setLocked(source.getLocked());
+
+        // 字体（最复杂的部分 — 需要复制 Font 对象到目标 workbook）
+        Font sourceFont = targetWorkbook.getFontAt(source.getFontIndex());
+        if (sourceFont != null) {
+            Font clonedFont = cloneFont(sourceFont, targetWorkbook);
+            target.setFont(clonedFont);
+        }
+
+        return target;
+    }
+
+    /**
+     * 克隆字体到目标 workbook
+     */
+    private static Font cloneFont(Font source, Workbook targetWorkbook) {
+        Font target = targetWorkbook.createFont();
+
+        target.setBold(source.getBold());
+        target.setItalic(source.getItalic());
+        target.setStrikeout(source.getStrikeout());
+        target.setUnderline(source.getUnderline());
+        target.setTypeOffset(source.getTypeOffset());
+        target.setFontName(source.getFontName());
+        target.setFontHeight(source.getFontHeight());
+        target.setFontHeightInPoints(source.getFontHeightInPoints());
+
+        // 字体颜色：优先处理 XSSF 自定义颜色
+        if (source instanceof XSSFFont xSrc && target instanceof XSSFFont xTgt) {
+            XSSFColor xColor = xSrc.getXSSFColor();
+            if (xColor != null && xColor.getRGB() != null) {
+                byte[] rgb = xColor.getRGB();
+                if (rgb.length >= 3) {
+                    java.awt.Color awtColor = new java.awt.Color(rgb[0] & 0xFF, rgb[1] & 0xFF, rgb[2] & 0xFF);
+                    xTgt.setColor(new XSSFColor(awtColor, new DefaultIndexedColorMap()));
+                    return target;
+                }
+            }
+        }
+        // 回退：使用索引色
+        short colorIdx = source.getColor();
+        if (colorIdx != IndexedColors.AUTOMATIC.getIndex()) {
+            target.setColor(colorIdx);
+        }
+
+        return target;
+    }
+
+    /**
+     * 克隆填充前景色（处理 XSSF 自定义颜色）
+     */
+    private static void cloneFillForegroundColor(CellStyle source, CellStyle target, Workbook targetWorkbook) {
+        if (source instanceof XSSFCellStyle xSrc && targetWorkbook instanceof XSSFWorkbook) {
+            XSSFColor xColor = xSrc.getFillForegroundXSSFColor();
+            if (xColor != null && xColor.getRGB() != null) {
+                byte[] rgb = xColor.getRGB();
+                if (rgb.length >= 3) {
+                    java.awt.Color awtColor = new java.awt.Color(rgb[0] & 0xFF, rgb[1] & 0xFF, rgb[2] & 0xFF);
+                    target.setFillForegroundColor(new XSSFColor(awtColor, new DefaultIndexedColorMap()));
+                    return;
+                }
+            }
+        }
+        // 回退：使用索引色
+        short fgColor = source.getFillForegroundColor();
+        if (fgColor != IndexedColors.AUTOMATIC.getIndex()) {
+            target.setFillForegroundColor(fgColor);
         }
     }
 

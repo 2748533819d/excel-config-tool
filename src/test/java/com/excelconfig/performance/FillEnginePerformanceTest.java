@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +37,9 @@ class FillEnginePerformanceTest {
     private static final Logger log = LoggerFactory.getLogger(FillEnginePerformanceTest.class);
 
     private final FillEngine engine = new FillEngine();
+
+    /** 最近一次 executeFill 的内存增量（字节），供测试方法断言使用 */
+    private long lastMemDeltaBytes;
 
     /** 测试输出文件保存目录 */
     private static final Path OUTPUT_DIR = Path.of("/Users/huangzhenzhen/Documents/excel-test/未命名文件夹");
@@ -217,7 +222,89 @@ class FillEnginePerformanceTest {
         }
 
         long totalCells = (long) rowCount * colCount;
-        log.info("FILL_TABLE {} ({}x{}): {} cells, output {} bytes", label, rowCount, colCount, totalCells, result.length);
+        long bytesPerCell = totalCells > 0 ? result.length / totalCells : 0;
+        log.info("FILL_TABLE {} ({}x{}): {} cells, output {}, 约 {} /cell",
+            label, rowCount, colCount, totalCells,
+            formatMemory(result.length),
+            formatMemory(bytesPerCell));
+
+        // 内存合理性校验：每行内存增量不应超过 50 KB（含 Cell 对象、样式等开销）
+        if (lastMemDeltaBytes > 0) {
+            long bytesPerRow = lastMemDeltaBytes / rowCount;
+            assertTrue(bytesPerRow < 50_000,
+                label + " 每行堆内存增量 " + formatMemory(bytesPerRow)
+                    + " 超过阈值 50 KB，可能存在内存泄漏或 CellStyle 未缓存");
+            log.info("  ↳ 堆内存增量 {}，每行 {}", formatMemory(lastMemDeltaBytes), formatMemory(bytesPerRow));
+        }
+    }
+
+    // ========== SXSSF 流式写入性能测试 ==========
+
+    @Test
+    void testFillTable_10kRows_10Cols_Streaming() {
+        testFillTableStreaming(10_000, 10, "10Kx10-SXSSF");
+    }
+
+    @Test
+    @Tag("large-scale")
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void testFillTable_100kRows_10Cols_Streaming() {
+        testFillTableStreaming(100_000, 10, "100Kx10-SXSSF");
+    }
+
+    private void testFillTableStreaming(int rowCount, int colCount, String label) {
+        String[] headerArray = new String[colCount];
+        for (int i = 0; i < colCount; i++) {
+            headerArray[i] = "列" + (i + 1);
+        }
+        List<String> headers = Arrays.asList(headerArray);
+
+        Workbook workbook = createTemplateWithHeaders(headers);
+        ExcelConfig config = createFillTableConfig("data", headers);
+
+        for (ColumnConfig col : config.getExports().get(0).getColumns()) {
+            StyleConfig colStyle = new StyleConfig();
+            colStyle.setVerticalAlign("CENTER");
+            col.setStyle(colStyle);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        List<Map<String, Object>> rows = new ArrayList<>(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            Map<String, Object> row = new LinkedHashMap<>(colCount);
+            for (int c = 0; c < colCount; c++) {
+                row.put("col" + c, "V-" + i + "-" + c);
+            }
+            rows.add(row);
+        }
+        data.put("data", rows);
+
+        // 启用 SXSSF 流式写入，行缓存窗口 100
+        config.setStreaming(true);
+        config.setStreamingRowWindowSize(100);
+
+        byte[] result = executeFill(workbook, data, config, "fill-table-" + label.toLowerCase());
+
+        // 校验输出文件完整性
+        try (Workbook resultWorkbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
+            Sheet sheet = resultWorkbook.getSheetAt(0);
+            assertEquals(rowCount, sheet.getLastRowNum(), label + " 行数");
+            assertEquals("V-0-0", sheet.getRow(1).getCell(0).getStringCellValue());
+            assertEquals("V-0-" + (colCount - 1), sheet.getRow(1).getCell(colCount - 1).getStringCellValue());
+            Row lastRow = sheet.getRow(rowCount);
+            assertEquals("V-" + (rowCount - 1) + "-0", lastRow.getCell(0).getStringCellValue());
+        } catch (Exception e) {
+            fail(label + " 验证失败: " + e.getMessage());
+        }
+
+        long totalCells = (long) rowCount * colCount;
+        log.info("FILL_TABLE {} ({}x{}): {} cells, output {}, streaming",
+            label, rowCount, colCount, totalCells, formatMemory(result.length));
+
+        if (lastMemDeltaBytes > 0) {
+            long bytesPerRow = lastMemDeltaBytes / rowCount;
+            log.info("  ↳ 堆内存增量 {}，每行 {}（SXSSF 流式）", formatMemory(lastMemDeltaBytes), formatMemory(bytesPerRow));
+        }
     }
 
     // ========== StyleCache 缓存效果验证 ==========
@@ -388,12 +475,43 @@ class FillEnginePerformanceTest {
         }
 
         long microsPerRow = elapsedMicros / rowCount;
-        log.info("FILL_DOWN 10K 复杂样式: {} μs/row, total {} ms, output {} bytes",
-            microsPerRow, elapsedMicros / 1000, result.length);
+
+        // 内存测量：此处额外测量是因为 executeFill 内部已有，但本测试有独立 timing
+        gcHint();
+        MemoryUsage styleMem = getHeapMemoryUsage();
+
+        log.info("FILL_DOWN 10K 复杂样式: {} μs/row, total {} ms, output {}, 堆 {}",
+            microsPerRow, elapsedMicros / 1000,
+            formatMemory(result.length),
+            formatMemory(styleMem.getUsed()));
 
         // StyleCache 下 10K 复杂样式应该 < 300 μs/row（不含模板 I/O）
         assertTrue(microsPerRow < 500,
             "10K 复杂样式每行耗时 " + microsPerRow + " μs，预期 < 500 μs（StyleCache 应使样式创建成本趋近于 0）");
+    }
+
+    // ========== 内存测量 ==========
+
+    private static MemoryUsage getHeapMemoryUsage() {
+        return ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+    }
+
+    private static String formatMemory(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    /** GC hint 以获取更稳定的内存基线 */
+    private static void gcHint() {
+        for (int i = 0; i < 3; i++) {
+            System.gc();
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     // ========== 辅助方法 ==========
@@ -408,6 +526,10 @@ class FillEnginePerformanceTest {
         }
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
 
+        // 内存基线 & 计时开始
+        gcHint();
+        MemoryUsage beforeMem = getHeapMemoryUsage();
+
         long startNanos = System.nanoTime();
         byte[] result;
         try {
@@ -417,13 +539,25 @@ class FillEnginePerformanceTest {
             return null; // 不可达
         }
         long elapsedMicros = (System.nanoTime() - startNanos) / 1_000;
+
+        // 内存测量
+        MemoryUsage afterMem = getHeapMemoryUsage();
+        long memDeltaBytes = afterMem.getUsed() - beforeMem.getUsed();
+        lastMemDeltaBytes = memDeltaBytes;
+
         long dataSize = data.values().stream()
             .filter(v -> v instanceof Collection)
             .mapToInt(v -> ((Collection<?>) v).size())
             .findFirst().orElse(0);
 
-        log.info("耗时 {} ms ({} μs/row), 输出 {} bytes",
-            elapsedMicros / 1000, dataSize > 0 ? elapsedMicros / dataSize : 0, result.length);
+        log.info("耗时 {} ms ({} μs/row), 内存 {} → {} (Δ {}), 每行 ~{}, 输出 {} bytes",
+            elapsedMicros / 1000,
+            dataSize > 0 ? elapsedMicros / dataSize : 0,
+            formatMemory(beforeMem.getUsed()),
+            formatMemory(afterMem.getUsed()),
+            formatMemory(memDeltaBytes),
+            dataSize > 0 ? formatMemory(memDeltaBytes / dataSize) : "N/A",
+            result.length);
 
         assertNotNull(result);
         assertTrue(result.length > 0, "输出不应为空");

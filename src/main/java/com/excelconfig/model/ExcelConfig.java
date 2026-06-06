@@ -31,6 +31,16 @@ public class ExcelConfig {
     @JsonProperty("exports")
     private java.util.List<ExportConfig> exports;
 
+    /**
+     * 是否启用 SXSSF 流式写入（大幅降低内存占用，适合大数据量导出）
+     */
+    private Boolean streaming;
+
+    /**
+     * SXSSF 行缓存窗口大小（默认 100），超过此值的行将被刷入磁盘
+     */
+    private Integer streamingRowWindowSize;
+
     public ExcelConfig() {
         this.extractions = new java.util.ArrayList<>();
         this.exports = new java.util.ArrayList<>();
@@ -66,5 +76,21 @@ public class ExcelConfig {
 
     public void setExports(java.util.List<ExportConfig> exports) {
         this.exports = exports;
+    }
+
+    public Boolean getStreaming() {
+        return streaming;
+    }
+
+    public void setStreaming(Boolean streaming) {
+        this.streaming = streaming;
+    }
+
+    public Integer getStreamingRowWindowSize() {
+        return streamingRowWindowSize;
+    }
+
+    public void setStreamingRowWindowSize(Integer streamingRowWindowSize) {
+        this.streamingRowWindowSize = streamingRowWindowSize;
     }
 }
